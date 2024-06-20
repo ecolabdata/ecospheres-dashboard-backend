@@ -1,0 +1,8 @@
+{
+  "cron": [
+    {
+      "command": "python cli.py load --load-orgs",
+      "schedule": "42 4 * * *"
+    }
+  ]
+}
