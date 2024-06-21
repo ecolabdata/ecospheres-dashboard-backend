@@ -70,7 +70,7 @@ def load_bouquets(env: str = "demo", universe_name: str = "ecospheres"):
 def load(
     env: str = "demo",
     topic_slug: str = "univers-ecospheres",
-    load_orgs: bool = False,
+    skip_related: bool = False,
 ):
     prefix = "www" if env == "prod" else env
     r = requests.get(f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/")
@@ -85,8 +85,9 @@ def load(
     for d in iter_rel(topic["datasets"]):
         table.upsert(Dataset.from_payload(d), ["dataset_id"])
 
-    if load_orgs:
+    if not skip_related:
         load_organizations()
+        load_bouquets()
 
 
 if __name__ == "__main__":

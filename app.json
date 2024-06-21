@@ -1,8 +1,20 @@
 {
   "cron": [
     {
-      "command": "python cli.py load --load-orgs",
+      "command": "python cli.py load",
       "schedule": "42 4 * * *"
     }
-  ]
+  ],
+  "healthchecks": {
+    "web": [
+      {
+        "type": "startup",
+        "name": "web check",
+        "description": "Checking if the app responds to the /",
+        "path": "/",
+        "attempts": 3,
+        "content": "ok"
+      }
+    ]
+  }
 }
