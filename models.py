@@ -1,5 +1,9 @@
 from datetime import datetime
-from typing import TypedDict
+from typing import TypedDict, List
+
+
+class Rel(TypedDict):
+    href: str
 
 
 class DatasetRow(TypedDict):
@@ -14,13 +18,6 @@ class DatasetRow(TypedDict):
     spatial: dict
     contact_point: dict
     deleted: bool
-
-
-class OrganizationRow(TypedDict):
-    organization_id: str
-    name: str
-    acronym: str
-    service_public: bool
 
 
 class Dataset:
@@ -38,8 +35,15 @@ class Dataset:
             organization=payload["organization"]["id"] if payload["organization"] else None,
             owner=payload["owner"]["id"] if payload["owner"] else None,
             nb_resources=payload["resources"]["total"],
-            deleted=False
+            deleted=False,
         )
+
+
+class OrganizationRow(TypedDict):
+    organization_id: str
+    name: str
+    acronym: str
+    service_public: bool
 
 
 class Organization:
@@ -50,5 +54,26 @@ class Organization:
             organization_id=payload["id"],
             name=payload["name"],
             acronym=payload["acronym"],
-            service_public=all(k in payload["badges"] for k in ["public-service", "certified"])
+            service_public=all(k in payload["badges"] for k in ["public-service", "certified"]),
         )
+
+
+class BouquetRow(TypedDict):
+    dataset_id: str
+    bouquet_id: str
+    name: str
+
+
+class Bouquet:
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> List[BouquetRow]:
+        return [
+            BouquetRow(
+                dataset_id=dataset["id"],
+                bouquet_id=payload["id"],
+                name=payload["name"],
+            )
+            for dataset in payload["extras"]["ecospheres:datasets_properties"]
+            if dataset.get("id")
+        ]

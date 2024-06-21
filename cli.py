@@ -6,12 +6,12 @@ import requests
 from minicli import cli, run
 
 from db import get_table, query, get_tables
-from models import Organization, Dataset
+from models import Organization, Dataset, Bouquet, Rel
 
 
-def iter_datasets(rel: dict):
-    print("Fetching datasets...")
+def iter_rel(rel: Rel):
     current_url = rel["href"]
+    print(f"Fetching {current_url}...")
     while current_url is not None:
         while True:
             r = requests.get(current_url)
@@ -55,6 +55,18 @@ def load_organizations(env: str = "demo", refresh: bool = False):
 
 
 @cli
+def load_bouquets(env: str = "demo", universe_name: str = "ecospheres"):
+    prefix = "www" if env == "prod" else env
+    table = get_table("bouquets")
+    if table.exists:
+        table.drop()
+    for bouquet in iter_rel({
+        "href": f"https://{prefix}.data.gouv.fr/api/2/topics/?tag={universe_name}",
+    }):
+        table.upsert_many(Bouquet.from_payload(bouquet), ["bouquet_id", "dataset_id"])
+
+
+@cli
 def load(
     env: str = "demo",
     topic_slug: str = "univers-ecospheres",
@@ -70,7 +82,7 @@ def load(
         query(env, "UPDATE catalog SET deleted = TRUE")
     table = get_table("catalog")
 
-    for d in iter_datasets(topic["datasets"]):
+    for d in iter_rel(topic["datasets"]):
         table.upsert(Dataset.from_payload(d), ["dataset_id"])
 
     if load_orgs:
