@@ -79,7 +79,7 @@ def load(
 
     if "catalog" in get_tables():
         # pre-set deleted, will be overwritten by actual upsert
-        query(env, "UPDATE catalog SET deleted = TRUE")
+        query("UPDATE catalog SET deleted = TRUE")
     table = get_table("catalog")
 
     for d in iter_rel(topic["datasets"]):
