@@ -105,7 +105,7 @@ def load(
 
     if not skip_related:
         load_organizations()
-        load_bouquets()
+        load_bouquets(include_private=True)
 
 
 if __name__ == "__main__":
