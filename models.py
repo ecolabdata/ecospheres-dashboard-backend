@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import TypedDict, List
 
+from sqlalchemy.dialects.postgresql import JSONB
+
 
 class Rel(TypedDict):
     href: str
@@ -15,9 +17,20 @@ class DatasetRow(TypedDict):
     extras: dict
     harvest_extras: dict
     last_modified: datetime
+    created_at: datetime
+    private: bool
+    acronym: str
+    slug: str
     spatial: dict
     contact_point: dict
     deleted: bool
+    description: str
+    tags: list
+    frequency: str
+    temporal_coverage: dict
+    license: str
+    quality: dict
+    internal: dict
 
 
 class Dataset:
@@ -30,13 +43,30 @@ class Dataset:
             extras=payload["extras"] or {},
             harvest_extras=payload["harvest"] or {},
             last_modified=datetime.fromisoformat(payload["last_modified"]),
+            created_at=datetime.fromisoformat(payload["created_at"]),
+            slug=payload["slug"],
+            acronym=payload["acronym"],
+            private=payload["private"],
             spatial=payload["spatial"] or {},
             contact_point=payload["contact_point"] or {},
             organization=payload["organization"]["id"] if payload["organization"] else None,
             owner=payload["owner"]["id"] if payload["owner"] else None,
             nb_resources=payload["resources"]["total"],
+            description=payload["description"],
+            frequency=payload["frequency"],
+            tags=payload["tags"] or [],
+            temporal_coverage=payload["temporal_coverage"] or {},
+            license=payload["license"],
+            quality=payload["quality"] or {},
+            internal=payload["internal"] or {},
             deleted=False,
         )
+
+    @classmethod
+    def col_types(cls):
+        return {
+            "tags": JSONB,
+        }
 
 
 class OrganizationRow(TypedDict):

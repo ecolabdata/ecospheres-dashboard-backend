@@ -101,7 +101,7 @@ def load(
     table = get_table("catalog")
 
     for d in iter_rel(topic["datasets"]):
-        table.upsert(Dataset.from_payload(d), ["dataset_id"])
+        table.upsert(Dataset.from_payload(d), ["dataset_id"], types=Dataset.col_types())
 
     if not skip_related:
         load_organizations()
