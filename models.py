@@ -104,6 +104,6 @@ class Bouquet:
                 bouquet_id=payload["id"],
                 name=payload["name"],
             )
-            for dataset in payload["extras"]["ecospheres:datasets_properties"]
+            for dataset in payload["extras"]["ecospheres"]["datasets_properties"]
             if dataset.get("id")
         ]
