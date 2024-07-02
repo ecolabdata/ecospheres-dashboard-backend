@@ -55,15 +55,33 @@ def load_organizations(env: str = "demo", refresh: bool = False):
 
 
 @cli
-def load_bouquets(env: str = "demo", universe_name: str = "ecospheres"):
+def load_bouquets(
+    env: str = "demo", universe_name: str = "ecospheres", include_private: bool = False
+):
     prefix = "www" if env == "prod" else env
-    table = get_table("bouquets")
-    if table.exists:
+
+    catalog = get_table("catalog")
+    table = get_table("datasets_bouquets")
+    if "datasets_bouquets" in get_tables():
         table.drop()
+
+    url = f"https://{prefix}.data.gouv.fr/api/2/topics/?tag={universe_name}"
+    if include_private:
+        url = f"{url}&include_private=yes"
+
     for bouquet in iter_rel({
-        "href": f"https://{prefix}.data.gouv.fr/api/2/topics/?tag={universe_name}",
+        "href": url,
     }):
-        table.upsert_many(Bouquet.from_payload(bouquet), ["bouquet_id", "dataset_id"])
+        rows = Bouquet.from_payload(bouquet)
+        for row in rows:
+            dataset = catalog.find_one(dataset_id=row["dataset_id"])
+            if dataset:
+                dataset.pop("id")
+                table.insert({
+                    "bouquet_id": row["bouquet_id"],
+                    "bouquet_name": row["name"],
+                    **dataset
+                })
 
 
 @cli
