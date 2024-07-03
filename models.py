@@ -69,6 +69,49 @@ class Dataset:
         }
 
 
+class ResourceRow(TypedDict):
+    dataset_id: str
+    resource_id: str
+    title: str
+    description: str
+    type: str
+    format: str | None
+    url: str
+    latest: str
+    checksum: dict
+    filesize: int | None
+    mime: str | None
+    created_at: datetime
+    last_modified: datetime
+    harvest_extras: dict
+    internal: dict
+    schema: dict
+
+
+class Resource:
+
+    @classmethod
+    def from_payload(cls, dataset_id: str, payload: dict) -> ResourceRow | None:
+        return ResourceRow(
+            dataset_id=dataset_id,
+            resource_id=payload["id"],
+            title=payload["title"],
+            description=payload["description"],
+            type=payload["type"],
+            format=payload["format"],
+            url=payload["url"],
+            latest=payload["latest"],
+            checksum=payload["checksum"] or {},
+            filesize=payload["filesize"],
+            mime=payload["mime"],
+            last_modified=datetime.fromisoformat(payload["last_modified"]),
+            created_at=datetime.fromisoformat(payload["created_at"]),
+            harvest_extras=payload["harvest"] or {},
+            internal=payload["internal"] or {},
+            schema=payload["schema"] or {},
+        )
+
+
 class OrganizationRow(TypedDict):
     organization_id: str
     name: str

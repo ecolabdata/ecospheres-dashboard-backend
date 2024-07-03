@@ -6,12 +6,13 @@ import requests
 from minicli import cli, run
 
 from db import get_table, query, get_tables
-from models import Organization, Dataset, Bouquet, Rel
+from models import Organization, Dataset, Bouquet, Rel, Resource
 
 
-def iter_rel(rel: Rel):
+def iter_rel(rel: Rel, quiet: bool = False):
     current_url = rel["href"]
-    print(f"Fetching {current_url}...")
+    if not quiet:
+        print(f"Fetching {current_url}...")
     while current_url is not None:
         while True:
             r = requests.get(current_url)
@@ -25,7 +26,8 @@ def iter_rel(rel: Rel):
             break
         payload = r.json()
         total_pages = math.ceil(payload["total"] / payload["page_size"])
-        print(f"Handling page {payload['page']}/{total_pages}")
+        if not quiet:
+            print(f"Handling page {payload['page']}/{total_pages}")
         current_url = payload["next_page"]
         for d in payload["data"]:
             yield d
@@ -100,8 +102,14 @@ def load(
         query("UPDATE catalog SET deleted = TRUE")
     table = get_table("catalog")
 
+    resources_table = get_table("resources")
+    if "resources" in get_tables():
+        resources_table.drop()
+
     for d in iter_rel(topic["datasets"]):
         table.upsert(Dataset.from_payload(d), ["dataset_id"], types=Dataset.col_types())
+        for r in iter_rel(d["resources"], quiet=True):
+            resources_table.upsert(Resource.from_payload(d["id"], r), ["resource_id"])
 
     if not skip_related:
         load_organizations()
