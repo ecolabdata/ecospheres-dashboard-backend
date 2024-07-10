@@ -25,7 +25,9 @@ class DatasetRow(TypedDict):
     contact_point: dict
     deleted: bool
     description: str
-    tags: list
+    # FIXME: make metabase schema sync crash
+    # ERROR: duplicate key value violates unique constraint "idx_uniq_field_table_id_parent_id_name_2col",  Detail: Key (table_id, name)=(9, tags) already exists.  # noqa
+    # tags: list
     frequency: str
     temporal_coverage: dict
     license: str
@@ -54,7 +56,7 @@ class Dataset:
             nb_resources=payload["resources"]["total"],
             description=payload["description"],
             frequency=payload["frequency"],
-            tags=payload["tags"] or [],
+            # tags=payload["tags"] or [],
             temporal_coverage=payload["temporal_coverage"] or {},
             license=payload["license"],
             quality=payload["quality"] or {},
