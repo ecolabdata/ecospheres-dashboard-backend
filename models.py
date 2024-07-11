@@ -4,6 +4,45 @@ from typing import TypedDict, List
 from sqlalchemy.dialects.postgresql import JSONB
 
 
+class BaseModel:
+
+    indicators= []
+
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+
+    def get_attr_by_path(self, path: str, sep: str = "__"):
+        parts = path.split(sep)
+        current_level = self.payload
+
+        for part in parts:
+            try:
+                current_level = current_level[part]
+                if current_level is None:
+                    return None
+            except KeyError:
+                return None
+
+        return current_level
+
+
+    def get_indicators(self) -> dict:
+        indicators = {}
+        for indicator in self.indicators:
+            value = self.get_attr_by_path(indicator["id"])
+            cmp = indicator["not"] if isinstance(indicator["not"], list) else [indicator["not"]]
+            indicators[f"has_{indicator['id']}"] = all(value != c for c in cmp)
+        return indicators
+
+    def to_model(self):
+        raise NotImplementedError()
+
+    def to_row(self) -> dict:
+        model = self.to_model()
+        indicators = self.get_indicators()
+        return {**model, **indicators}
+
+
 class Rel(TypedDict):
     href: str
 
@@ -35,39 +74,52 @@ class DatasetRow(TypedDict):
     internal: dict
 
 
-class Dataset:
+class Dataset(BaseModel):
 
-    @classmethod
-    def from_payload(cls, payload: dict) -> DatasetRow:
+    indicators = [
+        {"id": "license", "not": [None, "notspecified"]},
+        {"id": "harvest__created_at", "not": None},
+        {"id": "harvest__modified_at", "not": None},
+        {"id": "harvest__remote_id", "not": None},
+        {"id": "harvest__remote_url", "not": None},
+        {"id": "resources__total", "not": 0},
+        {"id": "spatial__zones", "not": [[], None]},
+        {"id": "spatial__geom", "not": [[], None]},
+        {"id": "temporal_coverage", "not": None},
+        {"id": "frequency", "not": [None, "unknown"]},
+        {"id": "contact_point", "not": None},
+    ]
+
+    def to_model(self) -> DatasetRow:
         return DatasetRow(
-            dataset_id=payload["id"],
-            title=payload["title"],
-            extras=payload["extras"] or {},
-            harvest_extras=payload["harvest"] or {},
-            last_modified=datetime.fromisoformat(payload["last_modified"]),
-            created_at=datetime.fromisoformat(payload["created_at"]),
-            slug=payload["slug"],
-            acronym=payload["acronym"],
-            private=payload["private"],
-            spatial=payload["spatial"] or {},
-            contact_point=payload["contact_point"] or {},
-            organization=payload["organization"]["id"] if payload["organization"] else None,
-            owner=payload["owner"]["id"] if payload["owner"] else None,
-            nb_resources=payload["resources"]["total"],
-            description=payload["description"],
-            frequency=payload["frequency"],
-            # tags=payload["tags"] or [],
-            temporal_coverage=payload["temporal_coverage"] or {},
-            license=payload["license"],
-            quality=payload["quality"] or {},
-            internal=payload["internal"] or {},
+            dataset_id=self.payload["id"],
+            title=self.payload["title"],
+            extras=self.payload["extras"] or {},
+            harvest_extras=self.payload["harvest"] or {},
+            last_modified=datetime.fromisoformat(self.payload["last_modified"]),
+            created_at=datetime.fromisoformat(self.payload["created_at"]),
+            slug=self.payload["slug"],
+            acronym=self.payload["acronym"],
+            private=self.payload["private"],
+            spatial=self.payload["spatial"] or {},
+            contact_point=self.payload["contact_point"] or {},
+            organization=self.payload["organization"]["id"] if self.payload["organization"] else None,
+            owner=self.payload["owner"]["id"] if self.payload["owner"] else None,
+            nb_resources=self.payload["resources"]["total"],
+            description=self.payload["description"],
+            frequency=self.payload["frequency"],
+            # tags=self.payload["tags"] or [],
+            temporal_coverage=self.payload["temporal_coverage"] or {},
+            license=self.payload["license"],
+            quality=self.payload["quality"] or {},
+            internal=self.payload["internal"] or {},
             deleted=False,
         )
 
     @classmethod
     def col_types(cls):
         return {
-            "tags": JSONB,
+            # "tags": JSONB,
         }
 
 

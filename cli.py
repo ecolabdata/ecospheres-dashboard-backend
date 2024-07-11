@@ -91,6 +91,7 @@ def load(
     env: str = "demo",
     topic_slug: str = "univers-ecospheres",
     skip_related: bool = False,
+    skip_resources: bool = False,
 ):
     prefix = "www" if env == "prod" else env
     r = requests.get(f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/")
@@ -107,9 +108,11 @@ def load(
         resources_table.drop()
 
     for d in iter_rel(topic["datasets"]):
-        table.upsert(Dataset.from_payload(d), ["dataset_id"], types=Dataset.col_types())
-        for r in iter_rel(d["resources"], quiet=True):
-            resources_table.upsert(Resource.from_payload(d["id"], r), ["resource_id"])
+        dataset = Dataset(d)
+        table.upsert(dataset.to_row(), ["dataset_id"], types=Dataset.col_types())
+        if not skip_resources:
+            for r in iter_rel(d["resources"], quiet=True):
+                resources_table.upsert(Resource.from_payload(d["id"], r), ["resource_id"])
 
     if not skip_related:
         load_organizations()
