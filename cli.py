@@ -104,7 +104,7 @@ def load(
     table = get_table("catalog")
 
     resources_table = get_table("resources")
-    if "resources" in get_tables():
+    if "resources" in get_tables() and not skip_resources:
         resources_table.drop()
 
     for d in iter_rel(topic["datasets"]):
