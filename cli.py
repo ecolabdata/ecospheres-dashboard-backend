@@ -1,12 +1,15 @@
 import math
 import time
 
+from datetime import date
+from collections import defaultdict
+
 import requests
 
 from minicli import cli, run
 
 from db import get_table, query, get_tables
-from models import Organization, Dataset, Bouquet, Rel, Resource
+from models import Organization, Dataset, DatasetBouquet, Rel, Resource, Bouquet
 
 
 def iter_rel(rel: Rel, quiet: bool = False):
@@ -63,9 +66,15 @@ def load_bouquets(
     prefix = "www" if env == "prod" else env
 
     catalog = get_table("catalog")
-    table = get_table("datasets_bouquets")
-    if "datasets_bouquets" in get_tables():
-        table.drop()
+
+    datasets_bouquets = get_table("datasets_bouquets")
+    if datasets_bouquets.exists:
+        datasets_bouquets.drop()
+
+    bouquets = get_table("bouquets")
+    if bouquets.exists:
+        # pre-set deleted, will be overwritten by actual upsert
+        query("UPDATE bouquets SET deleted = TRUE")
 
     url = f"https://{prefix}.data.gouv.fr/api/2/topics/?tag={universe_name}"
     if include_private:
@@ -74,16 +83,8 @@ def load_bouquets(
     for bouquet in iter_rel({
         "href": url,
     }):
-        rows = Bouquet.from_payload(bouquet)
-        for row in rows:
-            dataset = catalog.find_one(dataset_id=row["dataset_id"])
-            if dataset:
-                dataset.pop("id")
-                table.insert({
-                    "bouquet_id": row["bouquet_id"],
-                    "bouquet_name": row["name"],
-                    **dataset
-                })
+        bouquets.upsert(Bouquet.from_payload(bouquet), ["bouquet_id"])
+        datasets_bouquets.insert_many(DatasetBouquet.from_payload(bouquet, catalog))
 
 
 @cli
@@ -91,32 +92,102 @@ def load(
     env: str = "demo",
     topic_slug: str = "univers-ecospheres",
     skip_related: bool = False,
-    skip_resources: bool = False,
+    skip_metrics: bool = False,
 ):
+    """
+    Load objects from our universe into the database:
+    - datasets
+    - resources (related)
+    - organizations (related)
+    - bouquets (related)
+
+    And compute associated metrics.
+    """
     prefix = "www" if env == "prod" else env
     r = requests.get(f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/")
     r.raise_for_status()
     topic = r.json()
 
-    if "catalog" in get_tables():
+    table = get_table("catalog")
+    if table.exists:
         # pre-set deleted, will be overwritten by actual upsert
         query("UPDATE catalog SET deleted = TRUE")
-    table = get_table("catalog")
 
     resources_table = get_table("resources")
-    if "resources" in get_tables() and not skip_resources:
+    if "resources" in get_tables() and not skip_related:
         resources_table.drop()
 
     for d in iter_rel(topic["datasets"]):
         dataset = Dataset(d)
         table.upsert(dataset.to_row(), ["dataset_id"], types=Dataset.col_types())
-        if not skip_resources:
+        if not skip_related:
             for r in iter_rel(d["resources"], quiet=True):
                 resources_table.upsert(Resource.from_payload(d["id"], r), ["resource_id"])
 
     if not skip_related:
         load_organizations()
         load_bouquets(include_private=True)
+
+    if not skip_metrics:
+        compute_metrics()
+
+
+@cli
+def compute_metrics():
+    """
+    Fill the time-series metrics table with today's data
+    """
+    catalog = get_table("catalog")
+    metrics = get_table("metrics")
+    at = date.today()
+
+    def add_metric(measurement: str, value: int, organization: str | None = None):
+        metrics.upsert({
+            "date": at,
+            "measurement": measurement,
+            "value": value,
+            "organization": organization,
+        }, ["date", "measurement", "organization"])
+
+    organizations = [r["organization"] for r in catalog.distinct("organization", deleted=False)]
+    add_metric("nb_organizations", len(organizations))
+
+    agg = defaultdict(int)
+
+    for org in organizations:
+        nb_datasets = catalog.count(deleted=False, organization=org)
+        add_metric("nb_datasets", nb_datasets)
+        agg["nb_datasets"] += nb_datasets
+
+        for indicator in Dataset.indicators:
+            query = {
+                "deleted": False,
+                f"has_{indicator['id']}": True,
+                "organization": org,
+            }
+            measurement = f"nb_{indicator['id']}"
+            value = catalog.count(**query)
+            add_metric(measurement, value, organization=org)
+            agg[measurement] += value
+
+    for agg_key, agg_value in agg.items():
+        add_metric(agg_key, agg_value)
+
+    datasets_bouquets = get_table("datasets_bouquets")
+    # nb of associations bouquet <-> dataset from universe
+    add_metric("nb_datasets_from_universe_in_bouquets", datasets_bouquets.count())
+
+    bouquets = get_table("bouquets")
+    add_metric("nb_bouquets", bouquets.count(deleted=False))
+    add_metric("nb_bouquets_public", bouquets.count(private=False))
+    add_metric(
+        "nb_datasets_in_bouquets",
+        sum(b["nb_datasets"] for b in bouquets.find(deleted=False) if b),
+    )
+    add_metric(
+        "nb_factors_in_bouquets",
+        sum(b["nb_factors"] for b in bouquets.find(deleted=False) if b),
+    )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import TypedDict, List
+from typing import TypedDict, List, OrderedDict
 
+from dataset import Table
 from sqlalchemy.dialects.postgresql import JSONB
 
 
@@ -117,6 +118,10 @@ class Dataset(BaseModel):
         )
 
     @classmethod
+    def from_record(cls, record: OrderedDict) -> DatasetRow:
+        return DatasetRow(**{k: v for k, v in record.items() if k != "id"})
+
+    @classmethod
     def col_types(cls):
         return {
             # "tags": JSONB,
@@ -185,22 +190,66 @@ class Organization:
         )
 
 
+class DatasetBouquetRow(DatasetRow):
+    bouquet_id: str
+    bouquet_name: str
+
+
+class DatasetBouquet:
+
+    @classmethod
+    def from_payload(cls, payload: dict, catalog: Table) -> List[DatasetBouquetRow]:
+        """
+        Serialize a list of datasets existing in catalog from a bouquet payload
+        """
+        datasets_ids = [
+            dataset["id"] for dataset in payload["extras"]["ecospheres"]["datasets_properties"]
+            if dataset.get("id")
+        ]
+        datasets = [
+            result for result in (catalog.find_one(dataset_id=did) for did in datasets_ids)
+            if result is not None
+        ]
+
+        return [
+            {
+                "bouquet_id": payload["id"],
+                "bouquet_name": payload["name"],
+                **Dataset.from_record(dataset)
+            }
+            for dataset in datasets
+        ]
+
+
 class BouquetRow(TypedDict):
-    dataset_id: str
     bouquet_id: str
     name: str
+    private: bool
+    organization: str | None
+    owner: str | None
+    extras: dict
+    last_modified: datetime
+    created_at: datetime
+    nb_datasets: int
+    nb_factors: int
+    deleted: bool
 
 
 class Bouquet:
 
     @classmethod
-    def from_payload(cls, payload: dict) -> List[BouquetRow]:
-        return [
-            BouquetRow(
-                dataset_id=dataset["id"],
-                bouquet_id=payload["id"],
-                name=payload["name"],
-            )
-            for dataset in payload["extras"]["ecospheres"]["datasets_properties"]
-            if dataset.get("id")
-        ]
+    def from_payload(cls, payload: dict) -> BouquetRow:
+        datasets_properties = payload["extras"]["ecospheres"]["datasets_properties"]
+        return BouquetRow(
+            bouquet_id=payload["id"],
+            name=payload["name"],
+            private=payload["private"],
+            last_modified=datetime.fromisoformat(payload["last_modified"]),
+            created_at=datetime.fromisoformat(payload["created_at"]),
+            organization=payload["organization"]["id"] if payload["organization"] else None,
+            owner=payload["owner"]["id"] if payload["owner"] else None,
+            extras=payload["extras"] or {},
+            nb_datasets=len([d for d in datasets_properties if d.get("id")]),
+            nb_factors= len(datasets_properties),
+            deleted=False,
+        )
