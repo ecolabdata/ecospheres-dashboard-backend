@@ -7,6 +7,7 @@ from collections import defaultdict
 import requests
 
 from minicli import cli, run
+from sqlalchemy.types import Float
 
 from db import get_table, query, get_tables
 from models import Organization, Dataset, DatasetBouquet, Rel, Resource, Bouquet
@@ -141,13 +142,27 @@ def compute_metrics():
     metrics = get_table("metrics")
     at = date.today()
 
-    def add_metric(measurement: str, value: int, organization: str | None = None):
+    def add_metric(
+        measurement: str,
+        value: int,
+        organization: str | None = None,
+        total: int | None = None,
+    ):
         metrics.upsert({
             "date": at,
             "measurement": measurement,
             "value": value,
             "organization": organization,
-        }, ["date", "measurement", "organization"])
+        }, ["date", "measurement", "organization"], types={"value": Float})
+        if total is not None:
+            if not measurement.startswith("nb_"):
+                raise ValueError("Invalid measurement name, expecting 'nb_'")
+            metrics.upsert({
+                "date": at,
+                "measurement": measurement.replace("nb_", "ratio_"),
+                "value": (value / total) if total else 0.,
+                "organization": organization,
+            }, ["date", "measurement", "organization"])
 
     organizations = [r["organization"] for r in catalog.distinct("organization", deleted=False)]
     add_metric("nb_organizations", len(organizations))
@@ -156,7 +171,7 @@ def compute_metrics():
 
     for org in organizations:
         nb_datasets = catalog.count(deleted=False, organization=org)
-        add_metric("nb_datasets", nb_datasets)
+        add_metric("nb_datasets", nb_datasets, organization=org)
         agg["nb_datasets"] += nb_datasets
 
         for indicator in Dataset.indicators:
@@ -167,7 +182,7 @@ def compute_metrics():
             }
             measurement = f"nb_{indicator['id']}"
             value = catalog.count(**query)
-            add_metric(measurement, value, organization=org)
+            add_metric(measurement, value, organization=org, total=nb_datasets)
             agg[measurement] += value
 
     for agg_key, agg_value in agg.items():
