@@ -146,7 +146,6 @@ def compute_metrics():
         measurement: str,
         value: int,
         organization: str | None = None,
-        total: int | None = None,
     ):
         metrics.upsert({
             "date": at,
@@ -154,15 +153,6 @@ def compute_metrics():
             "value": value,
             "organization": organization,
         }, ["date", "measurement", "organization"], types={"value": Float})
-        if total is not None:
-            if not measurement.startswith("nb_"):
-                raise ValueError("Invalid measurement name, expecting 'nb_'")
-            metrics.upsert({
-                "date": at,
-                "measurement": measurement.replace("nb_", "ratio_"),
-                "value": (value / total) if total else 0.,
-                "organization": organization,
-            }, ["date", "measurement", "organization"])
 
     organizations = [r["organization"] for r in catalog.distinct("organization", deleted=False)]
     add_metric("nb_organizations", len(organizations))
@@ -182,7 +172,7 @@ def compute_metrics():
             }
             measurement = f"nb_{indicator['id']}"
             value = catalog.count(**query)
-            add_metric(measurement, value, organization=org, total=nb_datasets)
+            add_metric(measurement, value, organization=org)
             agg[measurement] += value
 
     for agg_key, agg_value in agg.items():
