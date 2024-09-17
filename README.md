@@ -1,4 +1,6 @@
-# ecopsheres-catalog
+# ecospheres-dashboard-backend
+
+A script that synchronizes data.gouv.fr's Ecospheres-related data to a Postgres database. This database is used to build dashboards.
 
 ## Getting started
 
