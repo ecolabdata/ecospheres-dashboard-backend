@@ -7,7 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 class BaseModel:
 
-    indicators= []
+    indicators = []
 
     def __init__(self, payload: dict) -> None:
         self.payload = payload
@@ -25,7 +25,6 @@ class BaseModel:
                 return None
 
         return current_level
-
 
     def get_indicators(self) -> dict:
         indicators = {}
