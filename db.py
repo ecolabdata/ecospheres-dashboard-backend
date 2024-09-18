@@ -27,8 +27,10 @@ def get_db():
 
 def get_table(table_name: str) -> dataset.table.Table:
     table = get().get_table(table_name)
+
     if table is None:
         raise ValueError(f"Table '{table_name}' does not exist.")
+
     return table
 
 
