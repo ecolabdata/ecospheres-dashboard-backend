@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import TypedDict, List, OrderedDict
+import re
 
 from dataset import Table
 from sqlalchemy.dialects.postgresql import JSONB
@@ -35,13 +36,37 @@ class BaseModel:
 
         return indicators
 
+    def compute_prefix_id_source(self) -> str:
+        missing_prefix_message = 'Préfixe manquant'
+
+        try:
+            remote_id = self.payload['harvest']['remote_id']
+        except KeyError:
+            return missing_prefix_message
+
+        m = re.match(
+            "^(https?://.*/)[^/]+$",
+            remote_id
+        )
+
+        if m:
+            return m.group(1)
+
+        return missing_prefix_message
+
+    def get_source_indicators(self) -> dict:
+        return {
+            'prefix_id_source': self.compute_prefix_id_source()
+        }
+
     def to_model(self):
         raise NotImplementedError()
 
     def to_row(self) -> dict:
         model = self.to_model()
         indicators = self.get_indicators()
-        return {**model, **indicators}
+        source_indicators = self.get_source_indicators()
+        return {**model, **indicators, **source_indicators}
 
 
 class Rel(TypedDict):
