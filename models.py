@@ -32,6 +32,7 @@ class BaseModel:
             value = self.get_attr_by_path(indicator["id"])
             cmp = indicator["not"] if isinstance(indicator["not"], list) else [indicator["not"]]
             indicators[f"has_{indicator['id']}"] = all(value != c for c in cmp)
+
         return indicators
 
     def to_model(self):
