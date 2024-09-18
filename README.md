@@ -12,7 +12,7 @@ docker compose up
 
 ### Use the script
 
-Install the required dependencies through `requirements.txt`.
+Install the required dependencies through `requirements.txt` or `requirements-dev.text`
 
 Export the env var needed for the script to find the database:
 
