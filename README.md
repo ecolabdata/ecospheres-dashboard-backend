@@ -14,6 +14,12 @@ docker compose up
 
 Install the required dependencies through `requirements.txt`.
 
+Export the env var needed for the script to find the database:
+
+```shell
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/demo
+```
+
 Launch the main script:
 
 ```shell
