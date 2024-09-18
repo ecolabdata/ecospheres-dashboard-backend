@@ -8,13 +8,20 @@ _db = None
 
 
 def get() -> dataset.Database:
-    global _db
-    if _db:
-        return _db
+    db = get_db()
+
+    if db:
+        return db
+
     dsn = os.getenv("DATABASE_URL")
     if not dsn:
         raise ValueError("Required DATABASE_URL env var missing.")
-    _db = dataset.connect(dsn)
+
+    db = dataset.connect(dsn)
+    return db
+
+
+def get_db():
     return _db
 
 
