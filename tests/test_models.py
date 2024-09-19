@@ -204,3 +204,12 @@ def test_base_model_compute_prefix_url_source_suffix_missing():
     })
 
     assert base.compute_prefix_url_source() == 'Préfixe manquant'
+
+
+def test_base_model_get_url_data_gouv():
+    base = BaseModel({'id': '123456'})
+
+    assert base.get_url_data_gouv() == (
+        '<a href="https://demo.data.gouv.fr/fr/datasets/123456"'
+        ' target="_blank">https://demo.data.gouv.fr/fr/datasets/123456</a>'
+    )

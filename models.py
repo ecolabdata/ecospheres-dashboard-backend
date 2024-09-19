@@ -70,10 +70,19 @@ class BaseModel:
             missing_prefix_message
         )
 
+    def get_url_data_gouv(self):
+        url = 'https://demo.data.gouv.fr/fr/datasets/'
+        id = self.payload['id']
+
+        return "<a href=\"{url}{id}\" target=\"_blank\">{url}{id}</a>".format(
+            url=url, id=id
+        )
+
     def get_source_indicators(self) -> dict:
         return {
             'prefix_id_source': self.compute_prefix_id_source(),
-            'prefix_url_source': self.compute_prefix_url_source()
+            'prefix_url_source': self.compute_prefix_url_source(),
+            'url_data_gouv': self.get_url_data_gouv()
         }
 
     def to_model(self):
