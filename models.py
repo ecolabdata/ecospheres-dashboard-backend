@@ -36,6 +36,14 @@ class BaseModel:
 
         return indicators
 
+    def get_prefix_or_fallback_from(self, url: str, message: str) -> str:
+        m = re.match("^(https?://.*/)[^/]+$", url)
+
+        if m:
+            return m.group(1)
+
+        return message
+
     def compute_prefix_id_source(self) -> str:
         missing_prefix_message = 'Préfixe manquant'
 
@@ -44,19 +52,28 @@ class BaseModel:
         except KeyError:
             return missing_prefix_message
 
-        m = re.match(
-            "^(https?://.*/)[^/]+$",
-            remote_id
+        return self.get_prefix_or_fallback_from(
+            remote_id,
+            missing_prefix_message
         )
 
-        if m:
-            return m.group(1)
+    def compute_prefix_url_source(self) -> str:
+        missing_prefix_message = 'Préfixe manquant'
 
-        return missing_prefix_message
+        try:
+            remote_id = self.payload['harvest']['remote_url']
+        except KeyError:
+            return missing_prefix_message
+
+        return self.get_prefix_or_fallback_from(
+            remote_id,
+            missing_prefix_message
+        )
 
     def get_source_indicators(self) -> dict:
         return {
-            'prefix_id_source': self.compute_prefix_id_source()
+            'prefix_id_source': self.compute_prefix_id_source(),
+            'prefix_url_source': self.compute_prefix_url_source()
         }
 
     def to_model(self):
