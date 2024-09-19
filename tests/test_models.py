@@ -213,3 +213,33 @@ def test_base_model_get_url_data_gouv():
         '<a href="https://demo.data.gouv.fr/fr/datasets/123456"'
         ' target="_blank">https://demo.data.gouv.fr/fr/datasets/123456</a>'
     )
+
+
+def test_base_model_get_consistent_date_updated_in_the_future():
+    base = BaseModel({'created_at': '100', 'last_modified': '200'})
+
+    assert base.get_consistent_date() == '200'
+
+
+def test_base_model_get_consistent_date_updated_in_the_past():
+    base = BaseModel({'created_at': '300', 'last_modified': '100'})
+
+    assert base.get_consistent_date() == '300'
+
+
+def test_base_model_get_consistent_date_missing_modified():
+    base = BaseModel({'created_at': '400'})
+
+    assert base.get_consistent_date() == '400'
+
+
+def test_base_model_get_consistent_date_missing_created():
+    base = BaseModel({'last_modified': '400'})
+
+    assert base.get_consistent_date() is None
+
+
+def test_base_model_get_consistent_date_no_dates():
+    base = BaseModel({})
+
+    assert base.get_consistent_date() is None

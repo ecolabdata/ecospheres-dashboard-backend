@@ -78,11 +78,28 @@ class BaseModel:
             url=url, id=id
         )
 
+    def get_consistent_date(self):
+        try:
+            created_at = self.payload['created_at']
+        except KeyError:
+            return None
+
+        try:
+            modified_at = self.payload['last_modified']
+        except KeyError:
+            return created_at
+
+        if (modified_at and modified_at >= created_at):
+            return modified_at
+
+        return created_at
+
     def get_source_indicators(self) -> dict:
         return {
             'prefix_id_source': self.compute_prefix_id_source(),
             'prefix_url_source': self.compute_prefix_url_source(),
-            'url_data_gouv': self.get_url_data_gouv()
+            'url_data_gouv': self.get_url_data_gouv(),
+            'consistent_date': self.get_consistent_date()
         }
 
     def to_model(self):
