@@ -44,7 +44,7 @@ class BaseModel:
 
         return message
 
-    def compute_prefix_id_source(self) -> str:
+    def compute_prefix_harvest_remote_id(self) -> str:
         missing_prefix_message = 'Préfixe manquant'
 
         try:
@@ -57,16 +57,16 @@ class BaseModel:
             missing_prefix_message
         )
 
-    def compute_prefix_url_source(self) -> str:
+    def compute_prefix_harvest_remote_url(self) -> str:
         missing_prefix_message = 'Préfixe manquant'
 
         try:
-            remote_id = self.payload['harvest']['remote_url']
+            remote_url = self.payload['harvest']['remote_url']
         except KeyError:
             return missing_prefix_message
 
         return self.get_prefix_or_fallback_from(
-            remote_id,
+            remote_url,
             missing_prefix_message
         )
 
@@ -96,8 +96,8 @@ class BaseModel:
 
     def get_source_indicators(self) -> dict:
         return {
-            'prefix_id_source': self.compute_prefix_id_source(),
-            'prefix_url_source': self.compute_prefix_url_source(),
+            'prefix_harvest_remote_id': self.compute_prefix_harvest_remote_id(),
+            'prefix_harvest_remote_url': self.compute_prefix_harvest_remote_url(),
             'url_data_gouv': self.get_url_data_gouv(),
             'consistent_date': self.get_consistent_date()
         }

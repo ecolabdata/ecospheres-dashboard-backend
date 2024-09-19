@@ -86,14 +86,14 @@ def test_base_model_get_indicators_true():
     assert base.get_indicators() == {'has_column_one': True}
 
 
-def test_base_model_compute_prefix_id_source_find_prefix():
+def test_base_model_compute_prefix_harvest_remote_id_find_prefix():
     base = BaseModel({
         'harvest': {
             'remote_id': 'https://slug/final'
         }
     })
 
-    assert base.compute_prefix_id_source() == 'https://slug/'
+    assert base.compute_prefix_harvest_remote_id() == 'https://slug/'
 
     base = BaseModel({
         'harvest': {
@@ -101,17 +101,17 @@ def test_base_model_compute_prefix_id_source_find_prefix():
         }
     })
 
-    assert base.compute_prefix_id_source() == 'http://slug/'
+    assert base.compute_prefix_harvest_remote_id() == 'http://slug/'
 
 
-def test_base_model_compute_prefix_id_source_bad_protocol():
+def test_base_model_compute_prefix_harvest_remote_id_bad_protocol():
     base = BaseModel({
         'harvest': {
             'remote_id': 'some string before https://slug/final'
         }
     })
 
-    assert base.compute_prefix_id_source() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
 
     base = BaseModel({
         'harvest': {
@@ -119,41 +119,41 @@ def test_base_model_compute_prefix_id_source_bad_protocol():
         }
     })
 
-    assert base.compute_prefix_id_source() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
 
 
-def test_base_model_compute_prefix_id_source_remote_id_missing():
+def test_base_model_compute_prefix_harvest_remote_id_remote_id_missing():
     base = BaseModel({
         'harvest': {}
     })
 
-    assert base.compute_prefix_id_source() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
 
 
-def test_base_model_compute_prefix_id_source_harvest_missing():
+def test_base_model_compute_prefix_harvest_remote_id_harvest_missing():
     base = BaseModel({})
 
-    assert base.compute_prefix_id_source() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
 
 
-def test_base_model_compute_prefix_id_source_suffix_missing():
+def test_base_model_compute_prefix_harvest_remote_id_suffix_missing():
     base = BaseModel({
         'harvest': {
             'remote_id': 'http://slug/'
         }
     })
 
-    assert base.compute_prefix_id_source() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
 
 
-def test_base_model_compute_prefix_url_source_find_prefix():
+def test_base_model_compute_harvest_prefix_url_find_prefix():
     base = BaseModel({
         'harvest': {
             'remote_url': 'https://slug/final'
         }
     })
 
-    assert base.compute_prefix_url_source() == 'https://slug/'
+    assert base.compute_prefix_harvest_remote_url() == 'https://slug/'
 
     base = BaseModel({
         'harvest': {
@@ -161,17 +161,17 @@ def test_base_model_compute_prefix_url_source_find_prefix():
         }
     })
 
-    assert base.compute_prefix_url_source() == 'http://slug/'
+    assert base.compute_prefix_harvest_remote_url() == 'http://slug/'
 
 
-def test_base_model_compute_prefix_url_source_bad_protocol():
+def test_base_model_compute_harvest_prefix_url_bad_protocol():
     base = BaseModel({
         'harvest': {
             'remote_url': 'some string before https://slug/final'
         }
     })
 
-    assert base.compute_prefix_url_source() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_url() == 'Préfixe manquant'
 
     base = BaseModel({
         'harvest': {
@@ -179,31 +179,31 @@ def test_base_model_compute_prefix_url_source_bad_protocol():
         }
     })
 
-    assert base.compute_prefix_url_source() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_url() == 'Préfixe manquant'
 
 
-def test_base_model_compute_prefix_url_source_remote_id_missing():
+def test_base_model_compute_harvest_prefix_url_remote_id_missing():
     base = BaseModel({
         'harvest': {}
     })
 
-    assert base.compute_prefix_url_source() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_url() == 'Préfixe manquant'
 
 
-def test_base_model_compute_prefix_url_source_harvest_missing():
+def test_base_model_compute_harvest_prefix_url_harvest_missing():
     base = BaseModel({})
 
-    assert base.compute_prefix_url_source() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_url() == 'Préfixe manquant'
 
 
-def test_base_model_compute_prefix_url_source_suffix_missing():
+def test_base_model_compute_harvest_prefix_url_suffix_missing():
     base = BaseModel({
         'harvest': {
             'remote_url': 'http://slug/'
         }
     })
 
-    assert base.compute_prefix_url_source() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_url() == 'Préfixe manquant'
 
 
 def test_base_model_get_url_data_gouv():
