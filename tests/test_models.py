@@ -243,3 +243,33 @@ def test_base_model_get_consistent_date_no_dates():
     base = BaseModel({})
 
     assert base.get_consistent_date() is None
+
+
+def test_base_model_get_consistent_temporal_coverage_end_in_the_future():
+    base = BaseModel({'temporal_coverage': {'start': 1, 'end': 2}})
+
+    assert base.get_consistent_temporal_coverage() is True
+
+
+def test_base_model_get_consistent_temporal_coverage_end_in_the_past():
+    base = BaseModel({'temporal_coverage': {'start': 4, 'end': 3}})
+
+    assert base.get_consistent_temporal_coverage() is False
+
+
+def test_base_model_get_consistent_temporal_coverage_missing_end():
+    base = BaseModel({'temporal_coverage': {'start': 4}})
+
+    assert base.get_consistent_temporal_coverage() is False
+
+
+def test_base_model_get_consistent_temporal_coverage_missing_start():
+    base = BaseModel({'temporal_coverage': {'end': 4}})
+
+    assert base.get_consistent_temporal_coverage() is False
+
+
+def test_base_model_get_consistent_temporal_coverage_no_dates():
+    base = BaseModel({'temporal_coverage': {}})
+
+    assert base.get_consistent_temporal_coverage() is False

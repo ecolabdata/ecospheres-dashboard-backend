@@ -78,7 +78,7 @@ class BaseModel:
             url=url, id=id
         )
 
-    def get_consistent_date(self):
+    def get_consistent_date(self) -> str:
         try:
             created_at = self.payload['created_at']
         except KeyError:
@@ -94,12 +94,31 @@ class BaseModel:
 
         return created_at
 
+    def get_consistent_temporal_coverage(self) -> bool:
+        temporal_coverage = self.payload['temporal_coverage']
+
+        if temporal_coverage is None:
+            return False
+
+        try:
+            start = temporal_coverage['start']
+        except KeyError:
+            return False
+
+        try:
+            end = temporal_coverage['end']
+        except KeyError:
+            return False
+
+        return end >= start
+
     def get_harvest_remote_columns(self) -> dict:
         return {
             'prefix_harvest_remote_id': self.compute_prefix_harvest_remote_id(),
             'prefix_harvest_remote_url': self.compute_prefix_harvest_remote_url(),
             'url_data_gouv': self.get_url_data_gouv(),
-            'consistent_date': self.get_consistent_date()
+            'consistent_date': self.get_consistent_date(),
+            'consistent_temporal_coverage': self.get_consistent_temporal_coverage()
         }
 
     def to_model(self):
