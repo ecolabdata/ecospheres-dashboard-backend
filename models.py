@@ -94,7 +94,7 @@ class BaseModel:
 
         return created_at
 
-    def get_source_indicators(self) -> dict:
+    def get_harvest_remote_columns(self) -> dict:
         return {
             'prefix_harvest_remote_id': self.compute_prefix_harvest_remote_id(),
             'prefix_harvest_remote_url': self.compute_prefix_harvest_remote_url(),
@@ -108,8 +108,8 @@ class BaseModel:
     def to_row(self) -> dict:
         model = self.to_model()
         indicators = self.get_indicators()
-        source_indicators = self.get_source_indicators()
-        return {**model, **indicators, **source_indicators}
+        harvest_remote_columns = self.get_harvest_remote_columns()
+        return {**model, **indicators, **harvest_remote_columns}
 
 
 class Rel(TypedDict):
