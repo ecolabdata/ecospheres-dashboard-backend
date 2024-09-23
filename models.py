@@ -77,7 +77,7 @@ class BaseModel:
         )
         id = self.payload['id']
 
-        return "<a href=\"{url}{id}\" target=\"_blank\">{url}{id}</a>".format(
+        return "<a href=\"{url}{id}\" target=\"_blank\">{id}</a>".format(
             url=url, id=id
         )
 
@@ -92,7 +92,7 @@ class BaseModel:
         except KeyError:
             return True
 
-        return modified_at and modified_at >= created_at
+        return modified_at >= created_at
 
     def get_consistent_temporal_coverage(self) -> bool:
         temporal_coverage = self.payload['temporal_coverage']

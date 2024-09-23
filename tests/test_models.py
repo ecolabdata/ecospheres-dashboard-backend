@@ -203,7 +203,7 @@ def test_base_model_get_url_data_gouv():
 
     assert base.get_url_data_gouv() == (
         '<a href="https://test.data.gouv.fr/fr/datasets/123456"'
-        ' target="_blank">https://test.data.gouv.fr/fr/datasets/123456</a>'
+        ' target="_blank">123456</a>'
     )
 
 
