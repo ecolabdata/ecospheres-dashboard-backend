@@ -71,7 +71,7 @@ class BaseModel:
             missing_prefix_message
         )
 
-    def get_url_data_gouv(self):
+    def get_url_data_gouv(self) -> str:
         url = 'https://{prefix}.data.gouv.fr/fr/datasets/'.format(
             prefix=self.prefix
         )
@@ -81,7 +81,7 @@ class BaseModel:
             url=url, id=id
         )
 
-    def get_consistent_date(self) -> str:
+    def get_consistent_dates(self) -> bool:
         try:
             created_at = self.payload['created_at']
         except KeyError:
@@ -120,7 +120,7 @@ class BaseModel:
             'prefix_harvest_remote_id': self.compute_prefix_harvest_remote_id(),
             'prefix_harvest_remote_url': self.compute_prefix_harvest_remote_url(),
             'url_data_gouv': self.get_url_data_gouv(),
-            'consistent_date': self.get_consistent_date(),
+            'consistent_dates': self.get_consistent_dates(),
             'consistent_temporal_coverage': self.get_consistent_temporal_coverage()
         }
 
