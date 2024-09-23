@@ -49,7 +49,18 @@ class BaseModel:
         missing_prefix_message = 'Préfixe manquant'
 
         try:
-            remote_id = self.payload['harvest']['remote_id']
+            if (self.payload is None):
+                raise KeyError
+
+            harvest = self.payload['harvest']
+
+            if (harvest is None):
+                raise KeyError
+
+            remote_id = harvest['remote_id']
+
+            if (remote_id is None):
+                raise KeyError
         except KeyError:
             return missing_prefix_message
 
@@ -62,7 +73,18 @@ class BaseModel:
         missing_prefix_message = 'Préfixe manquant'
 
         try:
-            remote_url = self.payload['harvest']['remote_url']
+            if (self.payload is None):
+                raise KeyError
+
+            harvest = self.payload['harvest']
+
+            if (harvest is None):
+                raise KeyError
+
+            remote_url = harvest['remote_url']
+
+            if (remote_url is None):
+                raise KeyError
         except KeyError:
             return missing_prefix_message
 
