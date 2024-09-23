@@ -207,34 +207,34 @@ def test_base_model_get_url_data_gouv():
     )
 
 
-def test_base_model_get_consistent_date_updated_in_the_future():
+def test_base_model_get_consistent_dates_updated_in_the_future():
     base = BaseModel({'created_at': '100', 'last_modified': '200'}, prefix='test')
 
-    assert base.get_consistent_date() == '200'
+    assert base.get_consistent_dates() is True
 
 
-def test_base_model_get_consistent_date_updated_in_the_past():
+def test_base_model_get_consistent_dates_updated_in_the_past():
     base = BaseModel({'created_at': '300', 'last_modified': '100'}, prefix='test')
 
-    assert base.get_consistent_date() == '300'
+    assert base.get_consistent_dates() is False
 
 
-def test_base_model_get_consistent_date_missing_modified():
+def test_base_model_get_consistent_dates_missing_modified():
     base = BaseModel({'created_at': '400'}, prefix='test')
 
-    assert base.get_consistent_date() == '400'
+    assert base.get_consistent_dates() is True
 
 
-def test_base_model_get_consistent_date_missing_created():
+def test_base_model_get_consistent_dates_missing_created():
     base = BaseModel({'last_modified': '400'}, prefix='test')
 
-    assert base.get_consistent_date() is None
+    assert base.get_consistent_dates() is False
 
 
-def test_base_model_get_consistent_date_no_dates():
+def test_base_model_get_consistent_dates_no_dates():
     base = BaseModel({}, prefix='test')
 
-    assert base.get_consistent_date() is None
+    assert base.get_consistent_dates() is False
 
 
 def test_base_model_get_consistent_temporal_coverage_end_in_the_future():

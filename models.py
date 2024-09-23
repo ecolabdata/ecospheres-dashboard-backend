@@ -85,17 +85,14 @@ class BaseModel:
         try:
             created_at = self.payload['created_at']
         except KeyError:
-            return None
+            return False
 
         try:
             modified_at = self.payload['last_modified']
         except KeyError:
-            return created_at
+            return True
 
-        if (modified_at and modified_at >= created_at):
-            return modified_at
-
-        return created_at
+        return modified_at and modified_at >= created_at
 
     def get_consistent_temporal_coverage(self) -> bool:
         temporal_coverage = self.payload['temporal_coverage']
