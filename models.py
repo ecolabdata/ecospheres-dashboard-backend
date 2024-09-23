@@ -10,8 +10,9 @@ class BaseModel:
 
     indicators = []
 
-    def __init__(self, payload: dict) -> None:
+    def __init__(self, payload: dict, prefix: str) -> None:
         self.payload = payload
+        self.prefix = prefix
 
     def get_attr_by_path(self, path: str, sep: str = "__"):
         parts = path.split(sep)
@@ -71,7 +72,9 @@ class BaseModel:
         )
 
     def get_url_data_gouv(self):
-        url = 'https://demo.data.gouv.fr/fr/datasets/'
+        url = 'https://{prefix}.data.gouv.fr/fr/datasets/'.format(
+            prefix=self.prefix
+        )
         id = self.payload['id']
 
         return "<a href=\"{url}{id}\" target=\"_blank\">{url}{id}</a>".format(
