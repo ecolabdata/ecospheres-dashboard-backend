@@ -104,22 +104,24 @@ def test_base_model_compute_prefix_harvest_remote_id_find_prefix():
     assert base.compute_prefix_harvest_remote_id() == 'http://slug/'
 
 
-def test_base_model_compute_prefix_harvest_remote_id_bad_protocol():
-    base = BaseModel({
-        'harvest': {
-            'remote_id': 'some string before https://slug/final'
-        }
-    })
-
-    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
-
+def test_base_model_compute_prefix_harvest_remote_id_ftp_protocol():
     base = BaseModel({
         'harvest': {
             'remote_id': 'ftp://slug/final'
         }
     })
 
-    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
+    assert base.compute_prefix_harvest_remote_id() == 'ftp://slug/'
+
+
+def test_base_model_compute_prefix_harvest_remote_id_string_ending_with_slash():
+    base = BaseModel({
+        'harvest': {
+            'remote_id': 'bépobépobépobépo/final'
+        }
+    })
+
+    assert base.compute_prefix_harvest_remote_id() == 'bépobépobépobépo/'
 
 
 def test_base_model_compute_prefix_harvest_remote_id_remote_id_missing():

@@ -37,7 +37,7 @@ class BaseModel:
         return indicators
 
     def get_prefix_or_fallback_from(self, url: str, message: str) -> str:
-        m = re.match("^(https?://.*/)[^/]+$", url)
+        m = re.match("^(.*/)[^/]+$", url)
 
         if m:
             return m.group(1)
