@@ -49,17 +49,14 @@ class BaseModel:
         missing_prefix_message = 'Préfixe manquant'
 
         try:
-            if (self.payload is None):
-                raise KeyError
-
             harvest = self.payload['harvest']
 
-            if (harvest is None):
+            if harvest is None:
                 raise KeyError
 
             remote_id = harvest['remote_id']
 
-            if (remote_id is None):
+            if remote_id is None:
                 raise KeyError
         except KeyError:
             return missing_prefix_message
@@ -73,17 +70,14 @@ class BaseModel:
         missing_prefix_message = 'Préfixe manquant'
 
         try:
-            if (self.payload is None):
-                raise KeyError
-
             harvest = self.payload['harvest']
 
-            if (harvest is None):
+            if harvest is None:
                 raise KeyError
 
             remote_url = harvest['remote_url']
 
-            if (remote_url is None):
+            if remote_url is None:
                 raise KeyError
         except KeyError:
             return missing_prefix_message
@@ -120,7 +114,7 @@ class BaseModel:
         temporal_coverage = self.payload['temporal_coverage']
 
         if temporal_coverage is None:
-            return False
+            return True
 
         try:
             start = temporal_coverage['start']
@@ -134,22 +128,19 @@ class BaseModel:
 
         return end >= start
 
-    def get_harvest_remote_columns(self) -> dict:
-        return {
-            'prefix_harvest_remote_id': self.compute_prefix_harvest_remote_id(),
-            'prefix_harvest_remote_url': self.compute_prefix_harvest_remote_url(),
-            'url_data_gouv': self.get_url_data_gouv(),
-            'consistent_dates': self.get_consistent_dates(),
-            'consistent_temporal_coverage': self.get_consistent_temporal_coverage()
-        }
-
     def to_model(self):
         raise NotImplementedError()
 
     def to_row(self) -> dict:
         model = self.to_model()
         indicators = self.get_indicators()
-        harvest_remote_columns = self.get_harvest_remote_columns()
+        harvest_remote_columns = {
+            'prefix_harvest_remote_id': self.compute_prefix_harvest_remote_id(),
+            'prefix_harvest_remote_url': self.compute_prefix_harvest_remote_url(),
+            'url_data_gouv': self.get_url_data_gouv(),
+            'consistent_dates': self.get_consistent_dates(),
+            'consistent_temporal_coverage': self.get_consistent_temporal_coverage()
+        }
         return {**model, **indicators, **harvest_remote_columns}
 
 

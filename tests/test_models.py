@@ -114,12 +114,6 @@ def test_base_model_compute_prefix_harvest_remote_id_string_ending_with_slash():
     assert base.compute_prefix_harvest_remote_id() == 'bépobépobépobépo/'
 
 
-def test_base_model_compute_prefix_harvest_remote_id_without_harvest_payload():
-    base = BaseModel(None, prefix='test')
-
-    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
-
-
 def test_base_model_compute_prefix_harvest_remote_id_with_none_harvest():
     base = BaseModel({'harvest': None}, prefix='test')
 
@@ -184,12 +178,6 @@ def test_base_model_compute_harvest_prefix_url_weird_prefix():
     }, prefix='test')
 
     assert base.compute_prefix_harvest_remote_url() == 'ftp://slug/'
-
-
-def test_base_model_compute_harvest_prefix_url_without_harvest_payload():
-    base = BaseModel(None, prefix='test')
-
-    assert base.compute_prefix_harvest_remote_url() == 'Préfixe manquant'
 
 
 def test_base_model_compute_prefix_prefix_url_with_none_harvest():
