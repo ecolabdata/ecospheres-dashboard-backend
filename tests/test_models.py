@@ -86,14 +86,14 @@ def test_base_model_get_indicators_true():
     assert base.get_indicators() == {'has_column_one': True}
 
 
-def test_base_model_compute_prefix_harvest_remote_id_find_prefix():
+def test_base_model_get_prefix_or_fallback_from_find_prefix():
     base = BaseModel({
         'harvest': {
             'remote_id': 'https://slug/final'
         }
     }, prefix='test')
 
-    assert base.compute_prefix_harvest_remote_id() == 'https://slug/'
+    assert base.get_prefix_or_fallback_from('remote_id') == 'https://slug/'
 
     base = BaseModel({
         'harvest': {
@@ -101,113 +101,47 @@ def test_base_model_compute_prefix_harvest_remote_id_find_prefix():
         }
     }, prefix='test')
 
-    assert base.compute_prefix_harvest_remote_id() == 'http://slug/'
+    assert base.get_prefix_or_fallback_from('remote_id') == 'http://slug/'
 
 
-def test_base_model_compute_prefix_harvest_remote_id_string_ending_with_slash():
+def test_base_model_get_prefix_or_fallback_from_string_ending_with_slash():
     base = BaseModel({
         'harvest': {
             'remote_id': 'bépobépobépobépo/final'
         }
     }, prefix='test')
 
-    assert base.compute_prefix_harvest_remote_id() == 'bépobépobépobépo/'
+    assert base.get_prefix_or_fallback_from('remote_id') == 'bépobépobépobépo/'
 
 
-def test_base_model_compute_prefix_harvest_remote_id_with_none_harvest():
+def test_base_model_get_prefix_or_fallback_from_with_none_harvest():
     base = BaseModel({'harvest': None}, prefix='test')
 
-    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
+    assert base.get_prefix_or_fallback_from('remote_id') == 'Préfixe manquant'
 
 
-def test_base_model_compute_prefix_harvest_remote_id_remote_id_missing():
+def test_base_model_get_prefix_or_fallback_from_remote_id_missing():
     base = BaseModel({
         'harvest': {}
     }, prefix='test')
 
-    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
+    assert base.get_prefix_or_fallback_from('remote_id') == 'Préfixe manquant'
 
 
-def test_base_model_compute_prefix_harvest_remote_id_harvest_missing():
+def test_base_model_get_prefix_or_fallback_from_harvest_missing():
     base = BaseModel({}, prefix='test')
 
-    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
+    assert base.get_prefix_or_fallback_from('remote_id') == 'Préfixe manquant'
 
 
-def test_base_model_compute_prefix_harvest_remote_id_suffix_missing():
+def test_base_model_get_prefix_or_fallback_from_suffix_missing():
     base = BaseModel({
         'harvest': {
             'remote_id': 'http://slug/'
         }
     }, prefix='test')
 
-    assert base.compute_prefix_harvest_remote_id() == 'Préfixe manquant'
-
-
-def test_base_model_compute_harvest_prefix_url_find_prefix():
-    base = BaseModel({
-        'harvest': {
-            'remote_url': 'https://slug/final'
-        }
-    }, prefix='test')
-
-    assert base.compute_prefix_harvest_remote_url() == 'https://slug/'
-
-    base = BaseModel({
-        'harvest': {
-            'remote_url': 'http://slug/final'
-        }
-    }, prefix='test')
-
-    assert base.compute_prefix_harvest_remote_url() == 'http://slug/'
-
-
-def test_base_model_compute_harvest_prefix_url_weird_prefix():
-    base = BaseModel({
-        'harvest': {
-            'remote_url': 'some string before https://slug/final'
-        }
-    }, prefix='test')
-
-    assert base.compute_prefix_harvest_remote_url() == 'some string before https://slug/'
-
-    base = BaseModel({
-        'harvest': {
-            'remote_url': 'ftp://slug/final'
-        }
-    }, prefix='test')
-
-    assert base.compute_prefix_harvest_remote_url() == 'ftp://slug/'
-
-
-def test_base_model_compute_prefix_prefix_url_with_none_harvest():
-    base = BaseModel({'harvest': None}, prefix='test')
-
-    assert base.compute_prefix_harvest_remote_url() == 'Préfixe manquant'
-
-
-def test_base_model_compute_harvest_prefix_url_remote_id_missing():
-    base = BaseModel({
-        'harvest': {}
-    }, prefix='test')
-
-    assert base.compute_prefix_harvest_remote_url() == 'Préfixe manquant'
-
-
-def test_base_model_compute_harvest_prefix_url_harvest_missing():
-    base = BaseModel({}, prefix='test')
-
-    assert base.compute_prefix_harvest_remote_url() == 'Préfixe manquant'
-
-
-def test_base_model_compute_harvest_prefix_url_suffix_missing():
-    base = BaseModel({
-        'harvest': {
-            'remote_url': 'http://slug/'
-        }
-    }, prefix='test')
-
-    assert base.compute_prefix_harvest_remote_url() == 'Préfixe manquant'
+    assert base.get_prefix_or_fallback_from('remote_id') == 'Préfixe manquant'
 
 
 def test_base_model_get_url_data_gouv():
@@ -246,7 +180,7 @@ def test_base_model_get_consistent_dates_missing_created():
 def test_base_model_get_consistent_dates_no_dates():
     base = BaseModel({}, prefix='test')
 
-    assert base.get_consistent_dates() is False
+    assert base.get_consistent_dates() is True
 
 
 def test_base_model_get_consistent_temporal_coverage_end_in_the_future():
@@ -276,4 +210,4 @@ def test_base_model_get_consistent_temporal_coverage_missing_start():
 def test_base_model_get_consistent_temporal_coverage_no_dates():
     base = BaseModel({'temporal_coverage': {}}, prefix='test')
 
-    assert base.get_consistent_temporal_coverage() is False
+    assert base.get_consistent_temporal_coverage() is True

@@ -8,6 +8,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 class BaseModel:
 
+    MISSING_PREFIX_MESSAGE = 'Préfixe manquant'
+
     indicators = []
 
     def __init__(self, payload: dict, prefix: str) -> None:
@@ -37,60 +39,30 @@ class BaseModel:
 
         return indicators
 
-    def get_prefix_or_fallback_from(self, url: str, message: str) -> str:
+    def get_prefix_or_fallback_from(self, key) -> str:
+        try:
+            harvest = self.payload['harvest']
+
+            if harvest is None:
+                raise KeyError
+
+            url = harvest[key]
+
+            if url is None:
+                raise KeyError
+
+        except KeyError:
+            return self.MISSING_PREFIX_MESSAGE
+
         m = re.match("^(.*/)[^/]+$", url)
 
         if m:
             return m.group(1)
 
-        return message
-
-    def compute_prefix_harvest_remote_id(self) -> str:
-        missing_prefix_message = 'Préfixe manquant'
-
-        try:
-            harvest = self.payload['harvest']
-
-            if harvest is None:
-                raise KeyError
-
-            remote_id = harvest['remote_id']
-
-            if remote_id is None:
-                raise KeyError
-        except KeyError:
-            return missing_prefix_message
-
-        return self.get_prefix_or_fallback_from(
-            remote_id,
-            missing_prefix_message
-        )
-
-    def compute_prefix_harvest_remote_url(self) -> str:
-        missing_prefix_message = 'Préfixe manquant'
-
-        try:
-            harvest = self.payload['harvest']
-
-            if harvest is None:
-                raise KeyError
-
-            remote_url = harvest['remote_url']
-
-            if remote_url is None:
-                raise KeyError
-        except KeyError:
-            return missing_prefix_message
-
-        return self.get_prefix_or_fallback_from(
-            remote_url,
-            missing_prefix_message
-        )
+        return self.MISSING_PREFIX_MESSAGE
 
     def get_url_data_gouv(self) -> str:
-        url = 'https://{prefix}.data.gouv.fr/fr/datasets/'.format(
-            prefix=self.prefix
-        )
+        url = f"https://{self.prefix}.data.gouv.fr/fr/datasets/"
         id = self.payload['id']
 
         return "<a href=\"{url}{id}\" target=\"_blank\">{id}</a>".format(
@@ -98,14 +70,13 @@ class BaseModel:
         )
 
     def get_consistent_dates(self) -> bool:
-        try:
-            created_at = self.payload['created_at']
-        except KeyError:
-            return False
+        created_at = self.payload.get('created_at')
+        modified_at = self.payload.get('last_modified')
 
-        try:
-            modified_at = self.payload['last_modified']
-        except KeyError:
+        if created_at is None:
+            return modified_at is None
+
+        if modified_at is None:
             return True
 
         return modified_at >= created_at
@@ -116,17 +87,16 @@ class BaseModel:
         if temporal_coverage is None:
             return True
 
-        try:
-            start = temporal_coverage['start']
-        except KeyError:
+        start = temporal_coverage.get('start')
+        end = temporal_coverage.get('end')
+
+        if start is None:
+            return end is None
+
+        if end is None:
             return False
 
-        try:
-            end = temporal_coverage['end']
-        except KeyError:
-            return False
-
-        return end >= start
+        return end > start
 
     def to_model(self):
         raise NotImplementedError()
@@ -135,8 +105,8 @@ class BaseModel:
         model = self.to_model()
         indicators = self.get_indicators()
         harvest_remote_columns = {
-            'prefix_harvest_remote_id': self.compute_prefix_harvest_remote_id(),
-            'prefix_harvest_remote_url': self.compute_prefix_harvest_remote_url(),
+            'prefix_harvest_remote_id': self.get_prefix_or_fallback_from('remote_id'),
+            'prefix_harvest_remote_url': self.get_prefix_or_fallback_from('remote_url'),
             'url_data_gouv': self.get_url_data_gouv(),
             'consistent_dates': self.get_consistent_dates(),
             'consistent_temporal_coverage': self.get_consistent_temporal_coverage()
