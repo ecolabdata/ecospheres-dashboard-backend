@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import TypedDict, List, OrderedDict
+import re
 
 from dataset import Table
 from sqlalchemy.dialects.postgresql import JSONB
@@ -7,10 +8,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 class BaseModel:
 
-    indicators= []
+    MISSING_PREFIX_MESSAGE = 'Préfixe manquant'
 
-    def __init__(self, payload: dict) -> None:
+    indicators = []
+
+    def __init__(self, payload: dict, prefix: str) -> None:
         self.payload = payload
+        self.prefix = prefix
 
     def get_attr_by_path(self, path: str, sep: str = "__"):
         parts = path.split(sep)
@@ -26,14 +30,71 @@ class BaseModel:
 
         return current_level
 
-
     def get_indicators(self) -> dict:
         indicators = {}
         for indicator in self.indicators:
             value = self.get_attr_by_path(indicator["id"])
             cmp = indicator["not"] if isinstance(indicator["not"], list) else [indicator["not"]]
             indicators[f"has_{indicator['id']}"] = all(value != c for c in cmp)
+
         return indicators
+
+    def get_prefix_or_fallback_from(self, key) -> str:
+        try:
+            harvest = self.payload['harvest']
+
+            if harvest is None:
+                raise KeyError
+
+            url = harvest[key]
+
+            if url is None:
+                raise KeyError
+
+        except KeyError:
+            return self.MISSING_PREFIX_MESSAGE
+
+        m = re.match("^(.*/)[^/]+$", url)
+
+        if m:
+            return m.group(1)
+
+        return self.MISSING_PREFIX_MESSAGE
+
+    def get_url_data_gouv(self) -> str:
+        url = f"https://{self.prefix}.data.gouv.fr/fr/datasets/"
+        id = self.payload['id']
+
+        return f"<a href=\"{url}{id}\" target=\"_blank\">{id}</a>"
+
+    def get_consistent_dates(self) -> bool:
+        created_at = self.payload.get('created_at')
+        modified_at = self.payload.get('last_modified')
+
+        if created_at is None:
+            return modified_at is None
+
+        if modified_at is None:
+            return True
+
+        return modified_at >= created_at
+
+    def get_consistent_temporal_coverage(self) -> bool:
+        temporal_coverage = self.payload['temporal_coverage']
+
+        if temporal_coverage is None:
+            return True
+
+        start = temporal_coverage.get('start')
+        end = temporal_coverage.get('end')
+
+        if start is None:
+            return end is None
+
+        if end is None:
+            return False
+
+        return end > start
 
     def to_model(self):
         raise NotImplementedError()
@@ -41,7 +102,14 @@ class BaseModel:
     def to_row(self) -> dict:
         model = self.to_model()
         indicators = self.get_indicators()
-        return {**model, **indicators}
+        computed_columns = {
+            'prefix_harvest_remote_id': self.get_prefix_or_fallback_from('remote_id'),
+            'prefix_harvest_remote_url': self.get_prefix_or_fallback_from('remote_url'),
+            'url_data_gouv': self.get_url_data_gouv(),
+            'consistent_dates': self.get_consistent_dates(),
+            'consistent_temporal_coverage': self.get_consistent_temporal_coverage()
+        }
+        return {**model, **indicators, **computed_columns}
 
 
 class Rel(TypedDict):

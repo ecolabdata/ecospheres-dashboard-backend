@@ -13,6 +13,10 @@ from db import get_table, query, get_tables
 from models import Organization, Dataset, DatasetBouquet, Rel, Resource, Bouquet
 
 
+def get_prefix_from_env(env: str):
+    return "www" if env == "prod" else env
+
+
 def iter_rel(rel: Rel, quiet: bool = False):
     current_url = rel["href"]
     if not quiet:
@@ -39,7 +43,7 @@ def iter_rel(rel: Rel, quiet: bool = False):
 
 @cli
 def load_organizations(env: str = "demo", refresh: bool = False):
-    prefix = "www" if env == "prod" else env
+    prefix = get_prefix_from_env(env)
     url = f"https://{prefix}.data.gouv.fr/api/1/organizations"
     catalog = get_table("catalog")
     organizations = get_table("organizations")
@@ -64,7 +68,7 @@ def load_organizations(env: str = "demo", refresh: bool = False):
 def load_bouquets(
     env: str = "demo", universe_name: str = "ecospheres", include_private: bool = False
 ):
-    prefix = "www" if env == "prod" else env
+    prefix = get_prefix_from_env(env)
 
     catalog = get_table("catalog")
 
@@ -104,7 +108,7 @@ def load(
 
     And compute associated metrics.
     """
-    prefix = "www" if env == "prod" else env
+    prefix = get_prefix_from_env(env)
     r = requests.get(f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/")
     r.raise_for_status()
     topic = r.json()
@@ -119,8 +123,9 @@ def load(
         resources_table.drop()
 
     for d in iter_rel(topic["datasets"]):
-        dataset = Dataset(d)
+        dataset = Dataset(d, prefix)
         table.upsert(dataset.to_row(), ["dataset_id"], types=Dataset.col_types())
+
         if not skip_related:
             for r in iter_rel(d["resources"], quiet=True):
                 resources_table.upsert(Resource.from_payload(d["id"], r), ["resource_id"])
