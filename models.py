@@ -102,14 +102,14 @@ class BaseModel:
     def to_row(self) -> dict:
         model = self.to_model()
         indicators = self.get_indicators()
-        harvest_remote_columns = {
+        computed_columns = {
             'prefix_harvest_remote_id': self.get_prefix_or_fallback_from('remote_id'),
             'prefix_harvest_remote_url': self.get_prefix_or_fallback_from('remote_url'),
             'url_data_gouv': self.get_url_data_gouv(),
             'consistent_dates': self.get_consistent_dates(),
             'consistent_temporal_coverage': self.get_consistent_temporal_coverage()
         }
-        return {**model, **indicators, **harvest_remote_columns}
+        return {**model, **indicators, **computed_columns}
 
 
 class Rel(TypedDict):
