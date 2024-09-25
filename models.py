@@ -65,9 +65,7 @@ class BaseModel:
         url = f"https://{self.prefix}.data.gouv.fr/fr/datasets/"
         id = self.payload['id']
 
-        return "<a href=\"{url}{id}\" target=\"_blank\">{id}</a>".format(
-            url=url, id=id
-        )
+        return f"<a href=\"{url}{id}\" target=\"_blank\">{id}</a>"
 
     def get_consistent_dates(self) -> bool:
         created_at = self.payload.get('created_at')
