@@ -1,16 +1,14 @@
 import math
 import time
-
-from datetime import date
 from collections import defaultdict
+from datetime import date
 
 import requests
-
 from minicli import cli, run
 from sqlalchemy.types import Float
 
-from db import get_table, query, get_tables
-from models import Organization, Dataset, DatasetBouquet, Rel, Resource, Bouquet
+from db import get_table, get_tables, query
+from models import Bouquet, Dataset, DatasetBouquet, Organization, Rel, Resource
 
 
 def get_prefix_from_env(env: str):
@@ -85,9 +83,11 @@ def load_bouquets(
     if include_private:
         url = f"{url}&include_private=yes"
 
-    for bouquet in iter_rel({
-        "href": url,
-    }):
+    for bouquet in iter_rel(
+        {
+            "href": url,
+        }
+    ):
         bouquets.upsert(Bouquet.from_payload(bouquet), ["bouquet_id"])
         datasets_bouquets.insert_many(DatasetBouquet.from_payload(bouquet, catalog))
 
@@ -152,12 +152,16 @@ def compute_metrics():
         value: int,
         organization: str | None = None,
     ):
-        metrics.upsert({
-            "date": at,
-            "measurement": measurement,
-            "value": value,
-            "organization": organization,
-        }, ["date", "measurement", "organization"], types={"value": Float})
+        metrics.upsert(
+            {
+                "date": at,
+                "measurement": measurement,
+                "value": value,
+                "organization": organization,
+            },
+            ["date", "measurement", "organization"],
+            types={"value": Float},
+        )
 
     organizations = [r["organization"] for r in catalog.distinct("organization", deleted=False)]
     add_metric("nb_organizations", len(organizations))

@@ -1,14 +1,12 @@
-from datetime import datetime
-from typing import TypedDict, List, OrderedDict
 import re
+from datetime import datetime
+from typing import List, OrderedDict, TypedDict
 
 from dataset import Table
-from sqlalchemy.dialects.postgresql import JSONB
 
 
 class BaseModel:
-
-    MISSING_PREFIX_MESSAGE = 'Préfixe manquant'
+    MISSING_PREFIX_MESSAGE = "Préfixe manquant"
 
     indicators = []
 
@@ -41,7 +39,7 @@ class BaseModel:
 
     def get_prefix_or_fallback_from(self, key) -> str:
         try:
-            harvest = self.payload['harvest']
+            harvest = self.payload["harvest"]
 
             if harvest is None:
                 raise KeyError
@@ -63,13 +61,13 @@ class BaseModel:
 
     def get_url_data_gouv(self) -> str:
         url = f"https://{self.prefix}.data.gouv.fr/fr/datasets/"
-        id = self.payload['id']
+        id = self.payload["id"]
 
-        return f"<a href=\"{url}{id}\" target=\"_blank\">{id}</a>"
+        return f'<a href="{url}{id}" target="_blank">{id}</a>'
 
     def get_consistent_dates(self) -> bool:
-        created_at = self.payload.get('created_at')
-        modified_at = self.payload.get('last_modified')
+        created_at = self.payload.get("created_at")
+        modified_at = self.payload.get("last_modified")
 
         if created_at is None:
             return modified_at is None
@@ -80,13 +78,13 @@ class BaseModel:
         return modified_at >= created_at
 
     def get_consistent_temporal_coverage(self) -> bool:
-        temporal_coverage = self.payload['temporal_coverage']
+        temporal_coverage = self.payload["temporal_coverage"]
 
         if temporal_coverage is None:
             return True
 
-        start = temporal_coverage.get('start')
-        end = temporal_coverage.get('end')
+        start = temporal_coverage.get("start")
+        end = temporal_coverage.get("end")
 
         if start is None:
             return end is None
@@ -103,11 +101,11 @@ class BaseModel:
         model = self.to_model()
         indicators = self.get_indicators()
         computed_columns = {
-            'prefix_harvest_remote_id': self.get_prefix_or_fallback_from('remote_id'),
-            'prefix_harvest_remote_url': self.get_prefix_or_fallback_from('remote_url'),
-            'url_data_gouv': self.get_url_data_gouv(),
-            'consistent_dates': self.get_consistent_dates(),
-            'consistent_temporal_coverage': self.get_consistent_temporal_coverage()
+            "prefix_harvest_remote_id": self.get_prefix_or_fallback_from("remote_id"),
+            "prefix_harvest_remote_url": self.get_prefix_or_fallback_from("remote_url"),
+            "url_data_gouv": self.get_url_data_gouv(),
+            "consistent_dates": self.get_consistent_dates(),
+            "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
         }
         return {**model, **indicators, **computed_columns}
 
@@ -144,7 +142,6 @@ class DatasetRow(TypedDict):
 
 
 class Dataset(BaseModel):
-
     indicators = [
         {"id": "license", "not": [None, "notspecified"]},
         {"id": "harvest__created_at", "not": None},
@@ -172,7 +169,9 @@ class Dataset(BaseModel):
             private=self.payload["private"],
             spatial=self.payload["spatial"] or {},
             contact_point=self.payload["contact_point"] or {},
-            organization=self.payload["organization"]["id"] if self.payload["organization"] else None,
+            organization=self.payload["organization"]["id"]
+            if self.payload["organization"]
+            else None,
             owner=self.payload["owner"]["id"] if self.payload["owner"] else None,
             nb_resources=self.payload["resources"]["total"],
             description=self.payload["description"],
@@ -216,7 +215,6 @@ class ResourceRow(TypedDict):
 
 
 class Resource:
-
     @classmethod
     def from_payload(cls, dataset_id: str, payload: dict) -> ResourceRow | None:
         return ResourceRow(
@@ -247,7 +245,6 @@ class OrganizationRow(TypedDict):
 
 
 class Organization:
-
     @classmethod
     def from_payload(cls, payload: dict) -> OrganizationRow:
         return OrganizationRow(
@@ -264,18 +261,19 @@ class DatasetBouquetRow(DatasetRow):
 
 
 class DatasetBouquet:
-
     @classmethod
     def from_payload(cls, payload: dict, catalog: Table) -> List[DatasetBouquetRow]:
         """
         Serialize a list of datasets existing in catalog from a bouquet payload
         """
         datasets_ids = [
-            dataset["id"] for dataset in payload["extras"]["ecospheres"]["datasets_properties"]
+            dataset["id"]
+            for dataset in payload["extras"]["ecospheres"]["datasets_properties"]
             if dataset.get("id")
         ]
         datasets = [
-            result for result in (catalog.find_one(dataset_id=did) for did in datasets_ids)
+            result
+            for result in (catalog.find_one(dataset_id=did) for did in datasets_ids)
             if result is not None
         ]
 
@@ -283,7 +281,7 @@ class DatasetBouquet:
             {
                 "bouquet_id": payload["id"],
                 "bouquet_name": payload["name"],
-                **Dataset.from_record(dataset)
+                **Dataset.from_record(dataset),
             }
             for dataset in datasets
         ]
@@ -304,7 +302,6 @@ class BouquetRow(TypedDict):
 
 
 class Bouquet:
-
     @classmethod
     def from_payload(cls, payload: dict) -> BouquetRow:
         datasets_properties = payload["extras"]["ecospheres"]["datasets_properties"]
@@ -318,6 +315,6 @@ class Bouquet:
             owner=payload["owner"]["id"] if payload["owner"] else None,
             extras=payload["extras"] or {},
             nb_datasets=len([d for d in datasets_properties if d.get("id")]),
-            nb_factors= len(datasets_properties),
+            nb_factors=len(datasets_properties),
             deleted=False,
         )
