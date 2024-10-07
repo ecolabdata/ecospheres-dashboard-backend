@@ -107,7 +107,12 @@ class BaseModel:
             "consistent_dates": self.get_consistent_dates(),
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
         }
-        return {**model, **indicators, **computed_columns}
+        harvest = {
+            'harvest__' + str(key): val for key,
+            val in self.payload['harvest'].items()
+        }
+
+        return {**model, **indicators, **computed_columns, **harvest}
 
 
 class Rel(TypedDict):
