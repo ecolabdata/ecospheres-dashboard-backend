@@ -1,4 +1,5 @@
-import datetime
+import pytest
+import json
 
 from models import BaseModel, Dataset
 
@@ -178,44 +179,26 @@ def test_base_model_get_consistent_temporal_coverage_no_dates():
     assert base.get_consistent_temporal_coverage() is True
 
 
-def test_base_model_harvest_spread():
+@pytest.fixture
+def payload_ok():
+    with open('tests/fixtures/payload_ok.json', 'r') as file:
+        data = json.load(file)
+
+    return data
+
+
+def test_base_model_harvest_spread(payload_ok):
     base = Dataset(
-        {
-            "id": "fake_id",
-            "path": None,
-            "title": "fake_title",
-            "extras": "fake_extras",
-            "harvest": {
-                "modified_at": "2024-11-07",
-                "remote_id": "fake_remote_id",
-                "remote_url": "fake_remote_url"
-            },
-            "last_modified": "2024-10-07",
-            "created_at": "2024-10-06",
-            "slug": "fake-slug",
-            "acronym": "fake-acronym",
-            "private": "fake_private",
-            "spatial": {},
-            "contact_point": "contact_point",
-            "organization": {"id": "fake_organization_id"},
-            "owner": {"id": "fake_owner_id"},
-            "resources": {"total": "fake_resources_total"},
-            "description": "fake description",
-            "frequency": "fake frequency",
-            "temporal_coverage": {},
-            "license": "fake license",
-            "quality": "fake quality",
-            "internal": "fake internal",
-        },
+        payload_ok,
         prefix="test"
     )
 
     actual = base.to_row()
 
     expected = {
-        "harvest__modified_at": "2024-11-07",
-        "harvest__remote_id": "fake_remote_id",
-        "harvest__remote_url": "fake_remote_url",
+        "harvest__created_at": "2013-02-16T00:00:00+00:00",
+        "harvest__remote_id": "4b112795-181a-4af5-9f66-c0837f50cbfa",
+        "harvest__remote_url": "https://catalogue.geo-ide.developpement-durable.gouv.fr:8443//catalogue/resource/4b112795-181a-4af5-9f66-c0837f50cbfa",
     }
 
     assert actual | expected == actual
