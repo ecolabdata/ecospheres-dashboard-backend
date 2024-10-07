@@ -109,9 +109,17 @@ def load(
     And compute associated metrics.
     """
     prefix = get_prefix_from_env(env)
-    r = requests.get(f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/")
-    r.raise_for_status()
-    topic = r.json()
+    request_topic = requests.get(
+        f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/"
+    )
+    request_topic.raise_for_status()
+    topic = request_topic.json()
+
+    request_licenses = requests.get(
+        f"https://{prefix}.data.gouv.fr/api/1/datasets/licenses/"
+    )
+    request_licenses.raise_for_status()
+    licenses = request_licenses.json()
 
     table = get_table("catalog")
     if table.exists:
@@ -123,7 +131,7 @@ def load(
         resources_table.drop()
 
     for d in iter_rel(topic["datasets"]):
-        dataset = Dataset(d, prefix)
+        dataset = Dataset(d, prefix, licenses)
         table.upsert(dataset.to_row(), ["dataset_id"], types=Dataset.col_types())
 
         if not skip_related:

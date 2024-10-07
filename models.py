@@ -10,9 +10,10 @@ class BaseModel:
 
     indicators = []
 
-    def __init__(self, payload: dict, prefix: str) -> None:
+    def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
         self.payload = payload
         self.prefix = prefix
+        self.licenses = licenses
 
     def get_attr_by_path(self, path: str, sep: str = "__"):
         parts = path.split(sep)
@@ -96,6 +97,11 @@ class BaseModel:
 
     def to_model(self):
         raise NotImplementedError()
+
+    def get_licenses_title(self, id: str) -> str:
+        return next(
+            item['title'] for item in self.licenses if item["id"] == id
+        )
 
     def to_row(self) -> dict:
         model = self.to_model()
@@ -182,7 +188,7 @@ class Dataset(BaseModel):
             frequency=self.payload["frequency"],
             # tags=self.payload["tags"] or [],
             temporal_coverage=self.payload["temporal_coverage"] or {},
-            license=self.payload["license"],
+            license=self.get_licenses_title(self.payload["license"]),
             quality=self.payload["quality"] or {},
             internal=self.payload["internal"] or {},
             deleted=False,
