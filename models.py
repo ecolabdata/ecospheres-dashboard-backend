@@ -108,7 +108,7 @@ class BaseModel:
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
         }
         harvest = {
-            'harvest__' + str(key): val for key,
+            f"harvest__{key}": val for key,
             val in self.payload['harvest'].items()
         }
 
