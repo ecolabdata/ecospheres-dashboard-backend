@@ -1,4 +1,6 @@
-from models import BaseModel
+import datetime
+
+from models import BaseModel, Dataset
 
 
 def test_base_model_get_attr_by_path_return_none_on_keyerror():
@@ -174,3 +176,46 @@ def test_base_model_get_consistent_temporal_coverage_no_dates():
     base = BaseModel({"temporal_coverage": {}}, prefix="test")
 
     assert base.get_consistent_temporal_coverage() is True
+
+
+def test_base_model_harvest_spread():
+    base = Dataset(
+        {
+            "id": "fake_id",
+            "path": None,
+            "title": "fake_title",
+            "extras": "fake_extras",
+            "harvest": {
+                "modified_at": "2024-11-07",
+                "remote_id": "fake_remote_id",
+                "remote_url": "fake_remote_url"
+            },
+            "last_modified": "2024-10-07",
+            "created_at": "2024-10-06",
+            "slug": "fake-slug",
+            "acronym": "fake-acronym",
+            "private": "fake_private",
+            "spatial": {},
+            "contact_point": "contact_point",
+            "organization": {"id": "fake_organization_id"},
+            "owner": {"id": "fake_owner_id"},
+            "resources": {"total": "fake_resources_total"},
+            "description": "fake description",
+            "frequency": "fake frequency",
+            "temporal_coverage": {},
+            "license": "fake license",
+            "quality": "fake quality",
+            "internal": "fake internal",
+        },
+        prefix="test"
+    )
+
+    actual = base.to_row()
+
+    expected = {
+        "harvest__modified_at": "2024-11-07",
+        "harvest__remote_id": "fake_remote_id",
+        "harvest__remote_url": "fake_remote_url",
+    }
+
+    assert actual | expected == actual
