@@ -108,10 +108,8 @@ class BaseModel:
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
         }
 
-        if isinstance(self.payload.get("harvest"), dict):
-            harvest = {f"harvest__{key}": val for key, val in self.payload["harvest"].items()}
-        else:
-            harvest = {}
+        harvest_payload = self.payload["harvest"] or {}
+        harvest = {f"harvest__{key}": val for key, val in harvest_payload.items()}
 
         return {**model, **indicators, **computed_columns, **harvest}
 
