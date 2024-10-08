@@ -100,7 +100,8 @@ class BaseModel:
 
     def get_licenses_title(self, id: str) -> str:
         return next(
-            item['title'] for item in self.licenses if item["id"] == id
+            (item['title'] for item in self.licenses if item["id"] == id),
+            None
         )
 
     def to_row(self) -> dict:
@@ -188,7 +189,8 @@ class Dataset(BaseModel):
             frequency=self.payload["frequency"],
             # tags=self.payload["tags"] or [],
             temporal_coverage=self.payload["temporal_coverage"] or {},
-            license=self.get_licenses_title(self.payload["license"]),
+            license=self.self.payload["license"],
+            license__title=self.get_licenses_title(self.payload["license"]),
             quality=self.payload["quality"] or {},
             internal=self.payload["internal"] or {},
             deleted=False,
