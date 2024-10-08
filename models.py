@@ -107,7 +107,11 @@ class BaseModel:
             "consistent_dates": self.get_consistent_dates(),
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
         }
-        harvest = {f"harvest__{key}": val for key, val in self.payload["harvest"].items()}
+
+        if isinstance(self.payload.get("harvest"), dict):
+            harvest = {f"harvest__{key}": val for key, val in self.payload["harvest"].items()}
+        else:
+            harvest = {}
 
         return {**model, **indicators, **computed_columns, **harvest}
 

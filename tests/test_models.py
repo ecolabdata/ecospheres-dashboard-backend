@@ -200,3 +200,14 @@ def test_base_model_harvest_spread(payload_ok):
     }
 
     assert actual | expected == actual
+
+
+def test_base_model_harvest_spread_with_harvest_none(payload_ok):
+    try:
+        payload_ok['harvest'] = None
+        payload_with_empty_harvest = payload_ok
+
+        base = Dataset(payload_with_empty_harvest, prefix="test")
+        base.to_row()
+    except Exception:
+        pytest.fail()
