@@ -28,6 +28,10 @@ python cli.py load
 
 It will download the catalog from data.gouv.fr and update or create the rows in the various tables. Metrics will be computed for the current day (run it multiple days in a row to have historical depth).
 
+## Schema changes
+
+- 2024-10-08: `catalog.harvest_extras` has been deprecated, `catalog.harvest` is now used. Quick migration: `ALTER TABLE catalog DROP COLUMN IF EXISTS harvest_extras;`
+
 ## Linting
 
 Linting, formatting and import sorting are done automatically by [Ruff](https://docs.astral.sh/ruff/) launched by a pre-commit hook. So, before contributing to the repository, it is necessary to initialize the pre-commit hooks:
