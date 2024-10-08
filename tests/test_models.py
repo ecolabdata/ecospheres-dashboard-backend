@@ -1,4 +1,8 @@
-from models import BaseModel
+import json
+
+import pytest
+
+from models import BaseModel, Dataset
 
 
 def test_base_model_get_attr_by_path_return_none_on_keyerror():
@@ -174,3 +178,36 @@ def test_base_model_get_consistent_temporal_coverage_no_dates():
     base = BaseModel({"temporal_coverage": {}}, prefix="test")
 
     assert base.get_consistent_temporal_coverage() is True
+
+
+@pytest.fixture
+def payload_ok():
+    with open("tests/fixtures/payload_ok.json", "r") as file:
+        data = json.load(file)
+
+    return data
+
+
+def test_base_model_harvest_spread(payload_ok):
+    base = Dataset(payload_ok, prefix="test")
+
+    actual = base.to_row()
+
+    expected = {
+        "harvest__created_at": "2013-02-16T00:00:00+00:00",
+        "harvest__remote_id": "4b112795-181a-4af5-9f66-c0837f50cbfa",
+        "harvest__remote_url": "https://catalogue.geo-ide.developpement-durable.gouv.fr:8443//catalogue/resource/4b112795-181a-4af5-9f66-c0837f50cbfa",
+    }
+
+    assert actual | expected == actual
+
+
+def test_base_model_harvest_spread_with_harvest_none(payload_ok):
+    try:
+        payload_ok["harvest"] = None
+        payload_with_empty_harvest = payload_ok
+
+        base = Dataset(payload_with_empty_harvest, prefix="test")
+        base.to_row()
+    except Exception:
+        pytest.fail()

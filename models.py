@@ -107,7 +107,11 @@ class BaseModel:
             "consistent_dates": self.get_consistent_dates(),
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
         }
-        return {**model, **indicators, **computed_columns}
+
+        harvest_payload = self.payload["harvest"] or {}
+        harvest = {f"harvest__{key}": val for key, val in harvest_payload.items()}
+
+        return {**model, **indicators, **computed_columns, **harvest}
 
 
 class Rel(TypedDict):
@@ -121,7 +125,7 @@ class DatasetRow(TypedDict):
     owner: str | None
     nb_resources: int
     extras: dict
-    harvest_extras: dict
+    harvest: dict
     last_modified: datetime
     created_at: datetime
     private: bool
@@ -161,7 +165,7 @@ class Dataset(BaseModel):
             dataset_id=self.payload["id"],
             title=self.payload["title"],
             extras=self.payload["extras"] or {},
-            harvest_extras=self.payload["harvest"] or {},
+            harvest=self.payload["harvest"] or {},
             last_modified=datetime.fromisoformat(self.payload["last_modified"]),
             created_at=datetime.fromisoformat(self.payload["created_at"]),
             slug=self.payload["slug"],
@@ -209,7 +213,7 @@ class ResourceRow(TypedDict):
     mime: str | None
     created_at: datetime
     last_modified: datetime
-    harvest_extras: dict
+    harvest: dict
     internal: dict
     schema: dict
 
@@ -231,7 +235,7 @@ class Resource:
             mime=payload["mime"],
             last_modified=datetime.fromisoformat(payload["last_modified"]),
             created_at=datetime.fromisoformat(payload["created_at"]),
-            harvest_extras=payload["harvest"] or {},
+            harvest=payload["harvest"] or {},
             internal=payload["internal"] or {},
             schema=payload["schema"] or {},
         )
