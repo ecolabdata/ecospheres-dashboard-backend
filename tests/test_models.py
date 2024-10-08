@@ -1,5 +1,6 @@
-import pytest
 import json
+
+import pytest
 
 from models import BaseModel, Dataset
 
@@ -181,17 +182,14 @@ def test_base_model_get_consistent_temporal_coverage_no_dates():
 
 @pytest.fixture
 def payload_ok():
-    with open('tests/fixtures/payload_ok.json', 'r') as file:
+    with open("tests/fixtures/payload_ok.json", "r") as file:
         data = json.load(file)
 
     return data
 
 
 def test_base_model_harvest_spread(payload_ok):
-    base = Dataset(
-        payload_ok,
-        prefix="test"
-    )
+    base = Dataset(payload_ok, prefix="test")
 
     actual = base.to_row()
 
