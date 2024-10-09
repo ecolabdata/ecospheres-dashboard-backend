@@ -10,10 +10,9 @@ class BaseModel:
 
     indicators = []
 
-    def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
+    def __init__(self, payload: dict, prefix: str) -> None:
         self.payload = payload
         self.prefix = prefix
-        self.licenses = licenses
 
     def get_attr_by_path(self, path: str, sep: str = "__"):
         parts = path.split(sep)
@@ -98,7 +97,7 @@ class BaseModel:
     def to_model(self):
         raise NotImplementedError()
 
-    def get_licenses_title(self, id: str) -> str | None:
+    def get_licenses_title(self, id: str | None) -> str | None:
         return next((item["title"] for item in self.licenses if item["id"] == id), None)
 
     def to_row(self) -> dict:
@@ -150,6 +149,10 @@ class DatasetRow(TypedDict):
 
 
 class Dataset(BaseModel):
+    def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
+        super().__init__(payload, prefix)
+        self.licenses = licenses
+
     indicators = [
         {"id": "license", "not": [None, "notspecified"]},
         {"id": "harvest__created_at", "not": None},
