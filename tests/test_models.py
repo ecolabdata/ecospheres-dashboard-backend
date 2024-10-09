@@ -214,20 +214,12 @@ def test_base_model_harvest_spread_with_harvest_none(payload_ok):
 
 
 def test_base_model_get_license_title_not_find_key():
-    base = BaseModel(
-        {},
-        prefix="test",
-        licenses=[{"id": "foo", "title": "bar"}]
-    )
+    base = BaseModel({}, prefix="test", licenses=[{"id": "foo", "title": "bar"}])
 
     assert base.get_licenses_title("other") is None
 
 
 def test_base_model_get_license_title_find_key():
-    base = BaseModel(
-        {},
-        prefix="test",
-        licenses=[{"id": "foo", "title": "bar"}]
-    )
+    base = BaseModel({}, prefix="test", licenses=[{"id": "foo", "title": "bar"}])
 
     assert base.get_licenses_title("foo") == "bar"

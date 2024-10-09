@@ -109,15 +109,11 @@ def load(
     And compute associated metrics.
     """
     prefix = get_prefix_from_env(env)
-    request_topic = requests.get(
-        f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/"
-    )
+    request_topic = requests.get(f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/")
     request_topic.raise_for_status()
     topic = request_topic.json()
 
-    request_licenses = requests.get(
-        f"https://{prefix}.data.gouv.fr/api/1/datasets/licenses/"
-    )
+    request_licenses = requests.get(f"https://{prefix}.data.gouv.fr/api/1/datasets/licenses/")
     request_licenses.raise_for_status()
     licenses = request_licenses.json()
 

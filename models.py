@@ -98,11 +98,8 @@ class BaseModel:
     def to_model(self):
         raise NotImplementedError()
 
-    def get_licenses_title(self, id: str) -> str:
-        return next(
-            (item['title'] for item in self.licenses if item["id"] == id),
-            None
-        )
+    def get_licenses_title(self, id: str) -> str | None:
+        return next((item["title"] for item in self.licenses if item["id"] == id), None)
 
     def to_row(self) -> dict:
         model = self.to_model()
