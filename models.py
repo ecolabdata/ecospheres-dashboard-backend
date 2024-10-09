@@ -189,7 +189,7 @@ class Dataset(BaseModel):
             frequency=self.payload["frequency"],
             # tags=self.payload["tags"] or [],
             temporal_coverage=self.payload["temporal_coverage"] or {},
-            license=self.self.payload["license"],
+            license=self.payload["license"],
             license__title=self.get_licenses_title(self.payload["license"]),
             quality=self.payload["quality"] or {},
             internal=self.payload["internal"] or {},
