@@ -97,6 +97,9 @@ class BaseModel:
     def to_model(self):
         raise NotImplementedError()
 
+    def get_license_title(self, id: str | None) -> str | None:
+        return next((item["title"] for item in self.licenses if item["id"] == id), None)
+
     def to_row(self) -> dict:
         model = self.to_model()
         indicators = self.get_indicators()
@@ -146,6 +149,10 @@ class DatasetRow(TypedDict):
 
 
 class Dataset(BaseModel):
+    def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
+        super().__init__(payload, prefix)
+        self.licenses = licenses
+
     indicators = [
         {"id": "license", "not": [None, "notspecified"]},
         {"id": "harvest__created_at", "not": None},
@@ -183,6 +190,7 @@ class Dataset(BaseModel):
             # tags=self.payload["tags"] or [],
             temporal_coverage=self.payload["temporal_coverage"] or {},
             license=self.payload["license"],
+            license__title=self.get_license_title(self.payload["license"]),
             quality=self.payload["quality"] or {},
             internal=self.payload["internal"] or {},
             deleted=False,
