@@ -97,7 +97,7 @@ class BaseModel:
     def to_model(self):
         raise NotImplementedError()
 
-    def get_licenses_title(self, id: str | None) -> str | None:
+    def get_license_title(self, id: str | None) -> str | None:
         return next((item["title"] for item in self.licenses if item["id"] == id), None)
 
     def to_row(self) -> dict:
@@ -190,7 +190,7 @@ class Dataset(BaseModel):
             # tags=self.payload["tags"] or [],
             temporal_coverage=self.payload["temporal_coverage"] or {},
             license=self.payload["license"],
-            license__title=self.get_licenses_title(self.payload["license"]),
+            license__title=self.get_license_title(self.payload["license"]),
             quality=self.payload["quality"] or {},
             internal=self.payload["internal"] or {},
             deleted=False,
