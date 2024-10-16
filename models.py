@@ -97,9 +97,6 @@ class BaseModel:
     def to_model(self):
         raise NotImplementedError()
 
-    def get_license_title(self, id: str | None) -> str | None:
-        return next((item["title"] for item in self.licenses if item["id"] == id), None)
-
     def to_row(self) -> dict:
         model = self.to_model()
         indicators = self.get_indicators()
@@ -144,6 +141,7 @@ class DatasetRow(TypedDict):
     frequency: str
     temporal_coverage: dict
     license: str
+    license__title: str | None
     quality: dict
     internal: dict
 
@@ -166,6 +164,9 @@ class Dataset(BaseModel):
         {"id": "frequency", "not": [None, "unknown"]},
         {"id": "contact_point", "not": None},
     ]
+
+    def get_license_title(self, id: str | None) -> str | None:
+        return next((item["title"] for item in self.licenses if item["id"] == id), None)
 
     def to_model(self) -> DatasetRow:
         return DatasetRow(
