@@ -21,7 +21,7 @@ def get() -> dataset.Database:
     return db
 
 
-def get_db():
+def get_db() -> dataset.Database | None:
     return _db
 
 
