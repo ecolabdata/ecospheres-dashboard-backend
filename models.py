@@ -109,8 +109,8 @@ class BaseModel:
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
         }
 
-        # TODO: model.pop("harvest")
         harvest = {f"harvest__{key}": val for key, val in model["harvest"].items()}
+        del model["harvest"]
 
         return {**model, **indicators, **computed_columns, **harvest}
 
