@@ -1,6 +1,7 @@
 import re
+from collections import defaultdict
 from datetime import datetime
-from typing import List, OrderedDict, TypedDict
+from typing import Callable, List, OrderedDict, Type, TypedDict
 
 from dataset import Table
 
@@ -108,14 +109,28 @@ class BaseModel:
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
         }
 
-        harvest_payload = self.payload["harvest"] or {}
-        harvest = {f"harvest__{key}": val for key, val in harvest_payload.items()}
+        # TODO: model.pop("harvest")
+        harvest = {f"harvest__{key}": val for key, val in model["harvest"].items()}
 
         return {**model, **indicators, **computed_columns, **harvest}
 
 
 class Rel(TypedDict):
     href: str
+
+
+class HarvestInfo(TypedDict, total=False):
+    # All harvest elements are optional in the udata model => total=False
+    backend: str
+    created_at: datetime
+    dct_identifier: str
+    domain: str
+    last_update: datetime
+    modified_at: datetime
+    remote_id: str
+    remote_url: str
+    source_id: str
+    uri: str
 
 
 class DatasetRow(TypedDict):
@@ -125,7 +140,7 @@ class DatasetRow(TypedDict):
     owner: str | None
     nb_resources: int
     extras: dict
-    harvest: dict
+    harvest: HarvestInfo
     last_modified: datetime
     created_at: datetime
     private: bool
@@ -147,6 +162,13 @@ class DatasetRow(TypedDict):
 
 
 class Dataset(BaseModel):
+    TYPE_MAP: dict[Type, Callable] = defaultdict(
+        # Callable (value) must be a constructor for corresponding Type (key)
+        # This can't be enforced with type hints, so use tests!
+        lambda: lambda v: v,  # default constructor is the type's own constructor
+        {datetime: datetime.fromisoformat},
+    )
+
     def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
         super().__init__(payload, prefix)
         self.licenses = licenses
@@ -165,6 +187,15 @@ class Dataset(BaseModel):
         {"id": "contact_point", "not": None},
     ]
 
+    def get_harvest_info(self, harvest: dict | None) -> HarvestInfo:
+        info = HarvestInfo()
+        if harvest:
+            # No type hints at runtime, we rely on TYPE_MAP being correct
+            for k, v in harvest.items():
+                t = HarvestInfo.__annotations__[str(k)]
+                info[k] = Dataset.TYPE_MAP[t](v)
+        return info
+
     def get_license_title(self, id: str | None) -> str | None:
         return next((item["title"] for item in self.licenses if item["id"] == id), None)
 
@@ -173,7 +204,7 @@ class Dataset(BaseModel):
             dataset_id=self.payload["id"],
             title=self.payload["title"],
             extras=self.payload["extras"] or {},
-            harvest=self.payload["harvest"] or {},
+            harvest=self.get_harvest_info(self.payload["harvest"]),
             last_modified=datetime.fromisoformat(self.payload["last_modified"]),
             created_at=datetime.fromisoformat(self.payload["created_at"]),
             slug=self.payload["slug"],
