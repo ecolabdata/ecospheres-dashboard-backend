@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 import pytest
 
@@ -194,12 +195,19 @@ def test_base_model_harvest_spread(payload_ok):
     actual = base.to_row()
 
     expected = {
-        "harvest__created_at": "2013-02-16T00:00:00+00:00",
+        "harvest__backend": "CSW-DCAT",
+        "harvest__created_at": datetime.fromisoformat("2013-02-16T00:00:00+00:00"),
+        "harvest__dct_identifier": "4b112795-181a-4af5-9f66-c0837f50cbfa",
+        "harvest__domain": "catalogue.geo-ide.developpement-durable.gouv.fr",
+        "harvest__last_update": datetime.fromisoformat("2024-05-24T02:52:01.047000+00:00"),
+        # no modified_at
         "harvest__remote_id": "4b112795-181a-4af5-9f66-c0837f50cbfa",
         "harvest__remote_url": "https://catalogue.geo-ide.developpement-durable.gouv.fr:8443//catalogue/resource/4b112795-181a-4af5-9f66-c0837f50cbfa",
+        "harvest__source_id": "65390755494c3b6fb40892ec",
+        "harvest__uri": "https://catalogue.geo-ide.developpement-durable.gouv.fr:8443//catalogue/resource/4b112795-181a-4af5-9f66-c0837f50cbfa",
     }
 
-    assert actual | expected == actual
+    assert {k: v for k, v in actual.items() if k.startswith("harvest__")} == expected
 
 
 def test_base_model_harvest_spread_with_harvest_none(payload_ok):
