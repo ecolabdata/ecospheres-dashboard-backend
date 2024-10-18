@@ -1,0 +1,37 @@
+{
+  "id": "71def345-0316-41f3-9695-06b02b14deef",
+  "title": "Téléchargement simple (Atom) du jeu et des documents associés via internet",
+  "description": "",
+  "filetype": "remote",
+  "type": "main",
+  "format": null,
+  "url": "https://atom.geo-ide.developpement-durable.gouv.fr/atomArchive/GetResource?id=5857d2b2-e5d5-427a-a0cc-7ba46d8c9f31&dataType=dataset",
+  "latest": "https://demo.data.gouv.fr/fr/datasets/r/71def345-0316-41f3-9695-06b02b14deef",
+  "checksum": null,
+  "filesize": null,
+  "mime": null,
+  "created_at": "2024-10-08T03:38:02.301000+00:00",
+  "last_modified": "2024-10-08T03:38:02.301000+00:00",
+  "metrics": {},
+  "harvest": {},
+  "extras": {
+    "check:available": false,
+    "check:timeout": true,
+    "check:date": "2024-10-09T14:30:55.778987+00:00",
+    "dcat": {
+      "accessRights": [
+        "Pas de restriction d'accès public selon INSPIRE"
+      ],
+      "license": [
+        "Licence Ouverte / Open Licence Version 2.0 https://www.etalab.gouv.fr/wp-content/uploads/2017/04/ETALAB-Licence-Ouverte-v2.0.pdf",
+        "Aucun des articles de la loi ne peut être invoqué pour justifier d'une restriction d'accès public."
+      ]
+    }
+  },
+  "preview_url": null,
+  "schema": null,
+  "internal": {
+    "created_at_internal": "2024-10-08T03:38:02.301000+00:00",
+    "last_modified_internal": "2024-10-08T03:38:02.301000+00:00"
+  }
+}

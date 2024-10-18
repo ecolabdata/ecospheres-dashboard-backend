@@ -212,9 +212,13 @@ class ResourceRow(TypedDict):
     dataset_id: str
     resource_id: str
     title: str
+    title__exists: bool
     description: str
+    description__exists: bool
     type: str
+    type__exists: bool
     format: str | None
+    format__exists: bool
     url: str
     latest: str
     checksum: dict
@@ -234,9 +238,13 @@ class Resource:
             dataset_id=dataset_id,
             resource_id=payload["id"],
             title=payload["title"],
+            title__exists=payload["title"] not in (None, ""),
             description=payload["description"],
+            description__exists=payload["description"] not in (None, ""),
             type=payload["type"],
+            type__exists=payload["type"] not in (None, ""),
             format=payload["format"],
+            format__exists=payload["format"] not in (None, ""),
             url=payload["url"],
             latest=payload["latest"],
             checksum=payload["checksum"] or {},

@@ -2,7 +2,14 @@ import json
 
 import pytest
 
-from models import BaseModel, Dataset
+from models import BaseModel, Dataset, Resource
+
+
+@pytest.fixture
+def fixture_payload(request):
+    with open(f"tests/fixtures/{request.param}", "r") as file:
+        data = json.load(file)
+    return data
 
 
 def test_base_model_get_attr_by_path_return_none_on_keyerror():
@@ -180,16 +187,9 @@ def test_base_model_get_consistent_temporal_coverage_no_dates():
     assert base.get_consistent_temporal_coverage() is True
 
 
-@pytest.fixture
-def payload_ok():
-    with open("tests/fixtures/payload_ok.json", "r") as file:
-        data = json.load(file)
-
-    return data
-
-
-def test_base_model_harvest_spread(payload_ok):
-    base = Dataset(payload_ok, prefix="test")
+@pytest.mark.parametrize("fixture_payload", ["payload_ok.json"], indirect=["fixture_payload"])
+def test_base_model_harvest_spread(fixture_payload):
+    base = Dataset(fixture_payload, prefix="test")
 
     actual = base.to_row()
 
@@ -202,10 +202,11 @@ def test_base_model_harvest_spread(payload_ok):
     assert actual | expected == actual
 
 
-def test_base_model_harvest_spread_with_harvest_none(payload_ok):
+@pytest.mark.parametrize("fixture_payload", ["payload_ok.json"], indirect=["fixture_payload"])
+def test_base_model_harvest_spread_with_harvest_none(fixture_payload):
     try:
-        payload_ok["harvest"] = None
-        payload_with_empty_harvest = payload_ok
+        fixture_payload["harvest"] = None
+        payload_with_empty_harvest = fixture_payload
 
         base = Dataset(payload_with_empty_harvest, prefix="test")
         base.to_row()
@@ -223,3 +224,23 @@ def test_base_model_get_license_title_find_key():
     base = Dataset({}, prefix="test", licenses=[{"id": "foo", "title": "bar"}])
 
     assert base.get_license_title("foo") == "bar"
+
+
+@pytest.mark.parametrize(
+    "fixture_payload", ["resource_payload_ok.json"], indirect=["fixture_payload"]
+)
+def test_resource_model_indicators(fixture_payload):
+    actual = Resource.from_payload("fake-id", fixture_payload)
+
+    expected = {
+        "title": "Téléchargement simple (Atom) du jeu et des documents associés via internet",
+        "title__exists": True,
+        "description": "",
+        "description__exists": False,
+        "type": "main",
+        "type__exists": True,
+        "format": None,
+        "format__exists": False,
+    }
+
+    assert actual | expected == actual  # type: ignore
