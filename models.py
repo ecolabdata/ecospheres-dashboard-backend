@@ -192,8 +192,10 @@ class Dataset(BaseModel):
         if harvest:
             # No type hints at runtime, we rely on TYPE_MAP being correct
             for k, v in harvest.items():
-                t = HarvestInfo.__annotations__[str(k)]
-                info[k] = Dataset.TYPE_MAP[t](v)
+                t = HarvestInfo.__annotations__.get(str(k))
+                if t:
+                    info[k] = Dataset.TYPE_MAP[t](v)
+
         return info
 
     def get_license_title(self, id: str | None) -> str | None:
