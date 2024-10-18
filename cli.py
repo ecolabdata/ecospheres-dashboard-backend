@@ -8,6 +8,7 @@ from minicli import cli, run
 from sqlalchemy.types import Float
 
 from db import get_table, get_tables, query
+from metrics import compute_quality_score
 from models import Bouquet, Dataset, DatasetBouquet, Organization, Rel, Resource
 
 
@@ -153,7 +154,7 @@ def compute_metrics():
 
     def add_metric(
         measurement: str,
-        value: int,
+        value: float | None,
         organization: str | None = None,
     ):
         metrics.upsert(
@@ -177,6 +178,9 @@ def compute_metrics():
         add_metric("nb_datasets", nb_datasets, organization=org)
         agg["nb_datasets"] += nb_datasets
 
+        # average quality score per organization
+        add_metric("avg_quality__score", compute_quality_score(org), organization=org)
+
         for indicator in Dataset.indicators:
             query = {
                 "deleted": False,
@@ -190,6 +194,9 @@ def compute_metrics():
 
     for agg_key, agg_value in agg.items():
         add_metric(agg_key, agg_value)
+
+    # global average quality score
+    add_metric("avg_quality__score", compute_quality_score())
 
     datasets_bouquets = get_table("datasets_bouquets")
     # nb of associations bouquet <-> dataset from universe
