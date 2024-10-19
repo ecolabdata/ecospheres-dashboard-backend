@@ -33,49 +33,49 @@ def test_base_model_get_attr_by_path_find_sub_property():
 
 def test_base_model_get_indicators_false():
     base = BaseModel({"column_false": None}, prefix="test")
-    base.indicators = [{"id": "column_false", "not": None}]
+    base.indicators = [{"field": "column_false", "exclude": (None,)}]
 
     assert base.get_indicators() == {"has_column_false": False}
 
     base = BaseModel({"column_false": True}, prefix="test")
-    base.indicators = [{"id": "column_false", "not": True}]
+    base.indicators = [{"field": "column_false", "exclude": (True,)}]
 
     assert base.get_indicators() == {"has_column_false": False}
 
     base = BaseModel({"column_false": "specific string"}, prefix="test")
-    base.indicators = [{"id": "column_false", "not": "specific string"}]
+    base.indicators = [{"field": "column_false", "exclude": ("specific string",)}]
 
     assert base.get_indicators() == {"has_column_false": False}
 
     base = BaseModel({"column_false": []}, prefix="test")
-    base.indicators = [{"id": "column_false", "not": [[], None]}]
+    base.indicators = [{"field": "column_false", "exclude": ([], None)}]
 
     assert base.get_indicators() == {"has_column_false": False}
 
     base = BaseModel({"column_false": None}, prefix="test")
-    base.indicators = [{"id": "column_false", "not": [[], None]}]
+    base.indicators = [{"field": "column_false", "exclude": ([], None)}]
 
     assert base.get_indicators() == {"has_column_false": False}
 
 
 def test_base_model_get_indicators_true():
     base = BaseModel({"column_one": "some value"}, prefix="test")
-    base.indicators = [{"id": "column_one", "not": None}]
+    base.indicators = [{"field": "column_one", "exclude": (None,)}]
 
     assert base.get_indicators() == {"has_column_one": True}
 
     base = BaseModel({"column_one": ""}, prefix="test")
-    base.indicators = [{"id": "column_one", "not": None}]
+    base.indicators = [{"field": "column_one", "exclude": (None,)}]
 
     assert base.get_indicators() == {"has_column_one": True}
 
     base = BaseModel({"column_one": 0}, prefix="test")
-    base.indicators = [{"id": "column_one", "not": None}]
+    base.indicators = [{"field": "column_one", "exclude": (None,)}]
 
     assert base.get_indicators() == {"has_column_one": True}
 
     base = BaseModel({"column_one": []}, prefix="test")
-    base.indicators = [{"id": "column_one", "not": None}]
+    base.indicators = [{"field": "column_one", "exclude": (None,)}]
 
     assert base.get_indicators() == {"has_column_one": True}
 
