@@ -91,25 +91,25 @@ def test_base_model_get_prefix_or_fallback_from_string_ending_with_slash():
 def test_base_model_get_prefix_or_fallback_from_with_none_harvest():
     base = BaseModel({"harvest": None}, prefix="test")
 
-    assert base.get_prefix_or_fallback_from("remote_id") == "Préfixe manquant"
+    assert base.get_prefix_or_fallback_from("remote_id") == BaseModel.MISSING_PREFIX_MESSAGE
 
 
 def test_base_model_get_prefix_or_fallback_from_remote_id_missing():
     base = BaseModel({"harvest": {}}, prefix="test")
 
-    assert base.get_prefix_or_fallback_from("remote_id") == "Préfixe manquant"
+    assert base.get_prefix_or_fallback_from("remote_id") == BaseModel.MISSING_PREFIX_MESSAGE
 
 
 def test_base_model_get_prefix_or_fallback_from_harvest_missing():
     base = BaseModel({}, prefix="test")
 
-    assert base.get_prefix_or_fallback_from("remote_id") == "Préfixe manquant"
+    assert base.get_prefix_or_fallback_from("remote_id") == BaseModel.MISSING_PREFIX_MESSAGE
 
 
 def test_base_model_get_prefix_or_fallback_from_suffix_missing():
     base = BaseModel({"harvest": {"remote_id": "http://slug/"}}, prefix="test")
 
-    assert base.get_prefix_or_fallback_from("remote_id") == "Préfixe manquant"
+    assert base.get_prefix_or_fallback_from("remote_id") == BaseModel.MISSING_PREFIX_MESSAGE
 
 
 def test_base_model_get_url_data_gouv():
