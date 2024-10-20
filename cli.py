@@ -182,12 +182,13 @@ def compute_metrics():
         add_metric("avg_quality__score", compute_quality_score(org), organization=org)
 
         for indicator in Dataset.indicators:
+            field = indicator["field"]
             query = {
                 "deleted": False,
-                f"has_{indicator['id']}": True,
+                f"has_{field}": True,
                 "organization": org,
             }
-            measurement = f"nb_{indicator['id']}"
+            measurement = f"nb_{field}"
             value = catalog.count(**query)
             add_metric(measurement, value, organization=org)
             agg[measurement] += value
