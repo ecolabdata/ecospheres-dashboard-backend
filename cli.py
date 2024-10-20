@@ -59,7 +59,13 @@ def load_organizations(env: str = "demo", refresh: bool = False):
         existing = organizations.find_one(organization_id=org_id)
         if not existing or refresh:
             r = requests.get(f"{url}/{org_id}/")
-            r.raise_for_status()
+            if not r.ok:
+                if r.status_code == 410:
+                    # TODO: delete from db?
+                    print(f"Warning: organization {org_id} has been deleted")
+                    continue
+                else:
+                    r.raise_for_status()
             organizations.upsert(Organization.from_payload(r.json()), ["organization_id"])
 
 
