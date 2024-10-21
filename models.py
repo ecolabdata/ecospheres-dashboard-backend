@@ -5,6 +5,14 @@ from typing import Callable, List, OrderedDict, Type, TypedDict
 
 from dataset import Table
 
+DEFAULT_EXCLUDE = (None,)
+DEFAULT_LIST_EXCLUDE = (None, [])
+DEFAULT_STRING_EXCLUDE = (None, "")
+
+
+def exists(element, exclude: tuple = DEFAULT_EXCLUDE):
+    return element not in exclude
+
 
 class BaseModel:
     MISSING_PREFIX_MESSAGE = "<préfixe absent>"
@@ -32,10 +40,9 @@ class BaseModel:
     def get_indicators(self) -> dict:
         indicators = {}
         for indicator in self.indicators:
-            value = self.get_attr_by_path(indicator["id"])
-            cmp = indicator["not"] if isinstance(indicator["not"], list) else [indicator["not"]]
-            indicators[f"has_{indicator['id']}"] = all(value != c for c in cmp)
-
+            field = indicator["field"]
+            value = self.get_attr_by_path(field)
+            indicators[f"has_{field}"] = exists(value, exclude=indicator["exclude"])
         return indicators
 
     def get_prefix_or_fallback_from(self, key) -> str:
@@ -174,17 +181,17 @@ class Dataset(BaseModel):
         self.licenses = licenses
 
     indicators = [
-        {"id": "license", "not": [None, "notspecified"]},
-        {"id": "harvest__created_at", "not": None},
-        {"id": "harvest__modified_at", "not": None},
-        {"id": "harvest__remote_id", "not": None},
-        {"id": "harvest__remote_url", "not": None},
-        {"id": "resources__total", "not": 0},
-        {"id": "spatial__zones", "not": [[], None]},
-        {"id": "spatial__geom", "not": [[], None]},
-        {"id": "temporal_coverage", "not": None},
-        {"id": "frequency", "not": [None, "unknown"]},
-        {"id": "contact_point", "not": None},
+        {"field": "license", "exclude": DEFAULT_STRING_EXCLUDE + ("notspecified",)},
+        {"field": "harvest__created_at", "exclude": DEFAULT_EXCLUDE},
+        {"field": "harvest__modified_at", "exclude": DEFAULT_EXCLUDE},
+        {"field": "harvest__remote_id", "exclude": DEFAULT_STRING_EXCLUDE},
+        {"field": "harvest__remote_url", "exclude": DEFAULT_STRING_EXCLUDE},
+        {"field": "resources__total", "exclude": (0,)},
+        {"field": "spatial__zones", "exclude": DEFAULT_LIST_EXCLUDE},
+        {"field": "spatial__geom", "exclude": DEFAULT_LIST_EXCLUDE},
+        {"field": "temporal_coverage", "exclude": DEFAULT_EXCLUDE},
+        {"field": "frequency", "exclude": DEFAULT_STRING_EXCLUDE + ("unknown",)},
+        {"field": "contact_point", "exclude": DEFAULT_EXCLUDE},
     ]
 
     def get_harvest_info(self, harvest: dict | None) -> HarvestInfo:
@@ -271,13 +278,13 @@ class Resource:
             dataset_id=dataset_id,
             resource_id=payload["id"],
             title=payload["title"],
-            title__exists=payload["title"] not in (None, ""),
+            title__exists=exists(payload["title"], exclude=DEFAULT_STRING_EXCLUDE),
             description=payload["description"],
-            description__exists=payload["description"] not in (None, ""),
+            description__exists=exists(payload["description"], exclude=DEFAULT_STRING_EXCLUDE),
             type=payload["type"],
-            type__exists=payload["type"] not in (None, ""),
+            type__exists=exists(payload["type"], exclude=DEFAULT_STRING_EXCLUDE),
             format=payload["format"],
-            format__exists=payload["format"] not in (None, ""),
+            format__exists=exists(payload["format"], exclude=DEFAULT_STRING_EXCLUDE),
             url=payload["url"],
             latest=payload["latest"],
             checksum=payload["checksum"] or {},
