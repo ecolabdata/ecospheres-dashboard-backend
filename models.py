@@ -7,7 +7,7 @@ from dataset import Table
 
 
 class BaseModel:
-    MISSING_PREFIX_MESSAGE = "Préfixe manquant"
+    MISSING_PREFIX_MESSAGE = "<préfixe absent>"
 
     indicators = []
 
