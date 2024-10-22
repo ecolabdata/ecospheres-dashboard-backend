@@ -15,7 +15,7 @@ def exists(element, exclude: tuple = DEFAULT_EXCLUDE):
 
 
 class BaseModel:
-    MISSING_PREFIX_MESSAGE = "<préfixe absent>"
+    MISSING_PREFIX_MESSAGE = "[préfixe absent]"
 
     indicators = []
 
