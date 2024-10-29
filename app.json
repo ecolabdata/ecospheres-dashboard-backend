@@ -1,11 +1,11 @@
 {
   "cron": [
     {
-      "command": "python cli.py load --env demo --universe-name ecospheres",
+      "command": "python cli.py load --env demo",
       "schedule": "42 4 * * *"
     },
     {
-      "command": "python cli.py load --env prod --universe-name univers-ecospheres",
+      "command": "python cli.py load --env prod",
       "schedule": "42 3 * * *"
     }
   ],
