@@ -2,6 +2,7 @@ import math
 import time
 from collections import defaultdict
 from datetime import date
+from typing import Literal
 
 import requests
 from minicli import cli, run
@@ -11,7 +12,7 @@ from db import get_table, get_tables, query
 from metrics import compute_quality_score
 from models import Bouquet, Dataset, DatasetBouquet, Organization, Rel, Resource
 
-ENVS_CONF: dict[str, dict] = {
+ENVS_CONF: dict[str, dict[Literal["universe_name", "topic_slug", "prefix"], str]] = {
     "prod": {
         "universe_name": "univers-ecospheres",
         "topic_slug": "univers-ecospheres",
@@ -23,10 +24,6 @@ ENVS_CONF: dict[str, dict] = {
         "prefix": "demo",
     },
 }
-
-
-def get_prefix_from_env(env: str):
-    return ENVS_CONF[env]["prefix"]
 
 
 def iter_rel(rel: Rel, quiet: bool = False):
@@ -55,7 +52,7 @@ def iter_rel(rel: Rel, quiet: bool = False):
 
 @cli
 def load_organizations(env: str = "demo", refresh: bool = False):
-    prefix = get_prefix_from_env(env)
+    prefix = ENVS_CONF[env]["prefix"]
     url = f"https://{prefix}.data.gouv.fr/api/1/organizations"
     catalog = get_table(env, "catalog")
     organizations = get_table(env, "organizations")
@@ -84,8 +81,7 @@ def load_organizations(env: str = "demo", refresh: bool = False):
 
 @cli
 def load_bouquets(env: str = "demo", include_private: bool = False):
-    prefix = get_prefix_from_env(env)
-
+    prefix = ENVS_CONF[env]["prefix"]
     catalog = get_table(env, "catalog")
 
     datasets_bouquets = get_table(env, "datasets_bouquets")
@@ -126,7 +122,7 @@ def load(
 
     And compute associated metrics.
     """
-    prefix = get_prefix_from_env(env)
+    prefix = ENVS_CONF[env]["prefix"]
     topic_slug = ENVS_CONF[env]["topic_slug"]
     request_topic = requests.get(f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/")
     request_topic.raise_for_status()
