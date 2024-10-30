@@ -1,4 +1,3 @@
-import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -12,8 +11,8 @@ def test_get_return_db_if_it_truthy():
 
 
 @patch("dataset.connect", Mock(return_value={"database": True}))
+@patch("db.get_config_value", Mock(return_value="test"))
 def test_get_return_fresh_db():
-    os.environ["DATABASE_URL_TEST"] = "some"
     assert get("test") == {"database": True}
 
 

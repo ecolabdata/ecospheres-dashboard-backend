@@ -1,26 +1,18 @@
-import os
-
 import dataset
 import dataset.table
 from dataset.util import ResultIter
+
+from config import get_config_value
 
 _dbs = {}
 
 
 def get(env: str) -> dataset.Database:
-    if env == "demo":
-        dsn = os.getenv("DATABASE_URL")
-    elif env == "prod":
-        dsn = os.getenv("DATABASE_URL_PROD")
-    elif env == "test":
-        dsn = os.getenv("DATABASE_URL_TEST")
-    else:
-        raise ValueError(f"Invalid environment '{env}'.")
-
     db = get_db(env)
     if db:
         return db
 
+    dsn = get_config_value(env, "dsn")
     if not dsn:
         raise ValueError(f"Required database dsn env var missing for environment '{env}'.")
 
