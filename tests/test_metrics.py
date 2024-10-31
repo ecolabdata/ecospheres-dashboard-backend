@@ -5,11 +5,14 @@ from metrics import compute_quality_score, quality_score_query
 
 def test_compute_quality_score():
     class MockDb:
+        def __init__(self, env: str) -> None:
+            pass
+
         def query(self, *args, **kwargs):
             yield {"mean_score": 0.5}
 
     with patch("db.get", MockDb):
-        assert compute_quality_score() == 0.5
+        assert compute_quality_score("test") == 0.5
 
 
 def test_quality_score_query():

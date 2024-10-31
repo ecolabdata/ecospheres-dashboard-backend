@@ -1,32 +1,30 @@
-import os
-
 import dataset
 import dataset.table
 from dataset.util import ResultIter
 
-_db = None
+from config import get_config_value
+
+_dbs = {}
 
 
-def get() -> dataset.Database:
-    db = get_db()
-
+def get(env: str) -> dataset.Database:
+    db = get_db(env)
     if db:
         return db
 
-    dsn = os.getenv("DATABASE_URL")
+    dsn = get_config_value(env, "dsn")
     if not dsn:
-        raise ValueError("Required DATABASE_URL env var missing.")
+        raise ValueError(f"Required database dsn env var missing for environment '{env}'.")
 
-    db = dataset.connect(dsn)
-    return db
-
-
-def get_db() -> dataset.Database | None:
-    return _db
+    return dataset.connect(dsn)
 
 
-def get_table(table_name: str) -> dataset.table.Table:
-    table = get().get_table(table_name)
+def get_db(env: str) -> dataset.Database | None:
+    return _dbs.get(env)
+
+
+def get_table(env: str, table_name: str) -> dataset.table.Table:
+    table = get(env).get_table(table_name)
 
     if table is None:
         raise ValueError(f"Table '{table_name}' does not exist.")
@@ -34,9 +32,9 @@ def get_table(table_name: str) -> dataset.table.Table:
     return table
 
 
-def get_tables() -> list[str]:
-    return get().tables
+def get_tables(env: str) -> list[str]:
+    return get(env).tables
 
 
-def query(q: str, *args, **kwargs) -> ResultIter:
-    return get().query(q, *args, **kwargs)
+def query(env: str, q: str, *args, **kwargs) -> ResultIter:
+    return get(env).query(q, *args, **kwargs)

@@ -7,13 +7,10 @@ import requests
 from minicli import cli, run
 from sqlalchemy.types import Float
 
+from config import get_config_value
 from db import get_table, get_tables, query
 from metrics import compute_quality_score
 from models import Bouquet, Dataset, DatasetBouquet, Organization, Rel, Resource
-
-
-def get_prefix_from_env(env: str):
-    return "www" if env == "prod" else env
 
 
 def iter_rel(rel: Rel, quiet: bool = False):
@@ -42,10 +39,10 @@ def iter_rel(rel: Rel, quiet: bool = False):
 
 @cli
 def load_organizations(env: str = "demo", refresh: bool = False):
-    prefix = get_prefix_from_env(env)
+    prefix = get_config_value(env, "prefix")
     url = f"https://{prefix}.data.gouv.fr/api/1/organizations"
-    catalog = get_table("catalog")
-    organizations = get_table("organizations")
+    catalog = get_table(env, "catalog")
+    organizations = get_table(env, "organizations")
     org_ids = set(
         [
             d["organization"]
@@ -70,22 +67,20 @@ def load_organizations(env: str = "demo", refresh: bool = False):
 
 
 @cli
-def load_bouquets(
-    env: str = "demo", universe_name: str = "ecospheres", include_private: bool = False
-):
-    prefix = get_prefix_from_env(env)
+def load_bouquets(env: str = "demo", include_private: bool = False):
+    prefix = get_config_value(env, "prefix")
+    catalog = get_table(env, "catalog")
 
-    catalog = get_table("catalog")
-
-    datasets_bouquets = get_table("datasets_bouquets")
+    datasets_bouquets = get_table(env, "datasets_bouquets")
     if datasets_bouquets.exists:
         datasets_bouquets.drop()
 
-    bouquets = get_table("bouquets")
+    bouquets = get_table(env, "bouquets")
     if bouquets.exists:
         # pre-set deleted, will be overwritten by actual upsert
-        query("UPDATE bouquets SET deleted = TRUE")
+        query(env, "UPDATE bouquets SET deleted = TRUE")
 
+    universe_name = get_config_value(env, "universe_name")
     url = f"https://{prefix}.data.gouv.fr/api/2/topics/?tag={universe_name}"
     if include_private:
         url = f"{url}&include_private=yes"
@@ -102,7 +97,6 @@ def load_bouquets(
 @cli
 def load(
     env: str = "demo",
-    topic_slug: str = "univers-ecospheres",
     skip_related: bool = False,
     skip_metrics: bool = False,
 ):
@@ -115,7 +109,8 @@ def load(
 
     And compute associated metrics.
     """
-    prefix = get_prefix_from_env(env)
+    prefix = get_config_value(env, "prefix")
+    topic_slug = get_config_value(env, "topic_slug")
     request_topic = requests.get(f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/")
     request_topic.raise_for_status()
     topic = request_topic.json()
@@ -124,13 +119,13 @@ def load(
     request_licenses.raise_for_status()
     licenses = request_licenses.json()
 
-    table = get_table("catalog")
+    table = get_table(env, "catalog")
     if table.exists:
         # pre-set deleted, will be overwritten by actual upsert
-        query("UPDATE catalog SET deleted = TRUE")
+        query(env, "UPDATE catalog SET deleted = TRUE")
 
-    resources_table = get_table("resources")
-    if "resources" in get_tables() and not skip_related:
+    resources_table = get_table(env, "resources")
+    if "resources" in get_tables(env) and not skip_related:
         resources_table.drop()
 
     for d in iter_rel(topic["datasets"]):
@@ -142,20 +137,20 @@ def load(
                 resources_table.upsert(Resource.from_payload(d["id"], r), ["resource_id"])
 
     if not skip_related:
-        load_organizations()
-        load_bouquets(include_private=True)
+        load_organizations(env=env)
+        load_bouquets(env=env, include_private=True)
 
     if not skip_metrics:
-        compute_metrics()
+        compute_metrics(env=env)
 
 
 @cli
-def compute_metrics():
+def compute_metrics(env: str = "demo"):
     """
     Fill the time-series metrics table with today's data
     """
-    catalog = get_table("catalog")
-    metrics = get_table("metrics")
+    catalog = get_table(env, "catalog")
+    metrics = get_table(env, "metrics")
     at = date.today()
 
     def add_metric(
@@ -185,7 +180,7 @@ def compute_metrics():
         agg["nb_datasets"] += nb_datasets
 
         # average quality score per organization
-        add_metric("avg_quality__score", compute_quality_score(org), organization=org)
+        add_metric("avg_quality__score", compute_quality_score(env, org), organization=org)
 
         for indicator in Dataset.indicators:
             field = indicator["field"]
@@ -203,13 +198,13 @@ def compute_metrics():
         add_metric(agg_key, agg_value)
 
     # global average quality score
-    add_metric("avg_quality__score", compute_quality_score())
+    add_metric("avg_quality__score", compute_quality_score(env))
 
-    datasets_bouquets = get_table("datasets_bouquets")
+    datasets_bouquets = get_table(env, "datasets_bouquets")
     # nb of associations bouquet <-> dataset from universe
     add_metric("nb_datasets_from_universe_in_bouquets", datasets_bouquets.count())
 
-    bouquets = get_table("bouquets")
+    bouquets = get_table(env, "bouquets")
     add_metric("nb_bouquets", bouquets.count(deleted=False))
     add_metric("nb_bouquets_public", bouquets.count(private=False))
     add_metric(

@@ -1,4 +1,3 @@
-import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,13 +7,13 @@ from db import get, get_table
 
 @patch("db.get_db", Mock(return_value=True))
 def test_get_return_db_if_it_truthy():
-    assert get() is True
+    assert get("test") is True
 
 
 @patch("dataset.connect", Mock(return_value={"database": True}))
+@patch("db.get_config_value", Mock(return_value="test"))
 def test_get_return_fresh_db():
-    os.environ["DATABASE_URL"] = "some"
-    assert get() == {"database": True}
+    assert get("test") == {"database": True}
 
 
 def test_get_table_raise_if_received_none():
@@ -24,7 +23,7 @@ def test_get_table_raise_if_received_none():
 
     with patch("db.get", return_value=Mock()):
         with pytest.raises(ValueError):
-            get_table("table_name")
+            get_table("test", "table_name")
 
 
 def test_get_table_return():
@@ -33,4 +32,4 @@ def test_get_table_return():
             return {"table": True}
 
     with patch("db.get", return_value=Mock()):
-        assert get_table("table_name") == {"table": True}
+        assert get_table("test", "table_name") == {"table": True}

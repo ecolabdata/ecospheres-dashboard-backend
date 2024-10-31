@@ -10,7 +10,7 @@ def quality_score_query(organization: str | None = None) -> tuple[str, dict]:
     return q, kwargs
 
 
-def compute_quality_score(organization: str | None = None) -> float | None:
+def compute_quality_score(env: str, organization: str | None = None) -> float | None:
     q, kwargs = quality_score_query(organization)
-    avg_quality__score = next(query(q, **kwargs))
+    avg_quality__score = next(query(env, q, **kwargs))
     return avg_quality__score["mean_score"] if avg_quality__score else None
