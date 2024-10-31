@@ -1,5 +1,5 @@
 requests
 minicli
-dataset
+sqlalchemy
 psycopg2-binary
 gunicorn
