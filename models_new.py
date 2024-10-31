@@ -206,6 +206,7 @@ class Dataset(Base):
     harvest__created_at = Column(DateTime)
     harvest__dct_identifier = Column(String)
     harvest__domain = Column(String)
+    # FIXME: those two should be handled by sqlalchemy without type casting
     harvest__last_update = Column(DateTime)
     harvest__modified_at = Column(DateTime)
     harvest__remote_id = Column(String)
