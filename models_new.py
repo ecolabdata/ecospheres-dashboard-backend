@@ -301,7 +301,7 @@ class Resource(Base):
     schema = Column(JSON)
 
     @classmethod
-    def from_dict(cls, data: dict, dataset_id: str) -> "Resource":
+    def from_payload(cls, data: dict, dataset_id: str) -> "Resource":
         return cls(
             **{
                 **{k: v for k, v in data.items() if hasattr(cls, k)},
@@ -320,7 +320,7 @@ class Organization(Base):
     service_public = Column(Boolean, default=False)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Organization":
+    def from_payload(cls, data: dict) -> "Organization":
         return cls(
             **{
                 **{k: v for k, v in data.items() if hasattr(cls, k)},
@@ -350,7 +350,7 @@ class Bouquet(Base):
     datasets = relationship("DatasetBouquet", back_populates="bouquet")
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Bouquet":
+    def from_payload(cls, data: dict) -> "Bouquet":
         datasets_properties = data["extras"]["ecospheres"]["datasets_properties"]
         return cls(
             **{
