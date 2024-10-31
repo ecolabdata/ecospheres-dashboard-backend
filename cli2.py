@@ -34,7 +34,6 @@ def main():
     else:
         print("Updating existing dataset")
         ds_org.id = existing.id
-        # FIXME: not updating anything?
         session.merge(ds_org)
 
     session.commit()
