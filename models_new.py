@@ -65,20 +65,15 @@ class DatasetComputedColumns:
     def get_prefix_or_fallback_from(self, key) -> str:
         try:
             harvest = self.payload["harvest"]
-
             if harvest is None:
                 raise KeyError
-
             url = harvest[key]
-
             if url is None:
                 raise KeyError
-
         except KeyError:
             return self.MISSING_PREFIX_MESSAGE
 
         m = re.match("^(.*/)[^/]+$", url)
-
         if m:
             return m.group(1)
 
@@ -87,33 +82,26 @@ class DatasetComputedColumns:
     def get_url_data_gouv(self) -> str:
         url = f"https://{self.prefix}.data.gouv.fr/fr/datasets/"
         id = self.payload["dataset_id"]
-
         return f'<a href="{url}{id}" target="_blank">{id}</a>'
 
     def get_consistent_dates(self) -> bool:
         created_at = self.payload.get("created_at")
         modified_at = self.payload.get("last_modified")
-
         if created_at is None:
             return modified_at is None
-
         if modified_at is None:
             return True
-
         return modified_at >= created_at
 
     def get_consistent_temporal_coverage(self) -> bool:
         temporal_coverage = self.payload["temporal_coverage"]
-
         if temporal_coverage is None:
             return True
 
         start = temporal_coverage.get("start")
         end = temporal_coverage.get("end")
-
         if start is None:
             return end is None
-
         if end is None:
             return False
 
@@ -207,9 +195,9 @@ class Dataset(Base):
 
         # some attributes need explicit mapping, for safety or casting,
         # the others will be taken as is from payload if they're defined on class
-        # FIXME: we should remove the id column and use dataset_id as primary key
         data["dataset_id"] = data.pop("id")
         data["nb_resources"] = data["resources"]["total"]
+        # conflicts with relationship, needs to be removed
         data.pop("resources")
         data["organization"] = data["organization"]["id"] if data["organization"] else None
         data["owner"] = data["owner"]["id"] if data["owner"] else None
