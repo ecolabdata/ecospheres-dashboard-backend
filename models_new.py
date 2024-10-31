@@ -1,7 +1,5 @@
 import re
-from collections import defaultdict
 from datetime import datetime
-from typing import Callable, Type, TypedDict
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -20,28 +18,8 @@ def exists(element, exclude: tuple = DEFAULT_EXCLUDE):
     return element not in exclude
 
 
-class HarvestInfo(TypedDict, total=False):
-    # All harvest elements are optional in the udata model => total=False
-    backend: str
-    created_at: datetime
-    dct_identifier: str
-    domain: str
-    last_update: datetime
-    modified_at: datetime
-    remote_id: str
-    remote_url: str
-    source_id: str
-    uri: str
-
-
 class DatasetComputedColumns:
     MISSING_PREFIX_MESSAGE = "[préfixe absent]"
-    TYPE_MAP: dict[Type, Callable] = defaultdict(
-        # Callable (value) must be a constructor for corresponding Type (key)
-        # This can't be enforced with type hints, so use tests!
-        lambda: lambda v: v,  # default constructor is the type's own constructor
-        {datetime: datetime.fromisoformat},
-    )
 
     indicators = [
         {"field": "license", "exclude": DEFAULT_STRING_EXCLUDE + ("notspecified",)},
@@ -142,23 +120,8 @@ class DatasetComputedColumns:
         return end > start
 
     def get_harvest_info(self) -> dict:
+        """Simple explode of harvest data, selection and type casting is handled by sqlalchemy"""
         harvest = self.payload.get("harvest", {})
-        if isinstance(harvest, dict):
-            for key, value in harvest.items():
-                if isinstance(value, str) and value.endswith("Z"):
-                    try:
-                        harvest[key] = datetime.fromisoformat(value.rstrip("Z"))
-                    except ValueError:
-                        pass
-
-        info = HarvestInfo()
-        if harvest:
-            # No type hints at runtime, we rely on TYPE_MAP being correct
-            for k, v in harvest.items():
-                t = HarvestInfo.__annotations__.get(str(k))
-                if t:
-                    info[k] = self.TYPE_MAP[t](v)
-
         return {f"harvest__{key}": val for key, val in harvest.items()} if harvest else {}
 
     def get_license_title(self) -> str | None:
@@ -206,7 +169,6 @@ class Dataset(Base):
     harvest__created_at = Column(DateTime)
     harvest__dct_identifier = Column(String)
     harvest__domain = Column(String)
-    # FIXME: those two should be handled by sqlalchemy without type casting
     harvest__last_update = Column(DateTime)
     harvest__modified_at = Column(DateTime)
     harvest__remote_id = Column(String)
