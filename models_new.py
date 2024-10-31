@@ -119,10 +119,13 @@ class DatasetComputedColumns:
 
         return end > start
 
-    def get_harvest_info(self) -> dict:
-        """Simple explode of harvest data, selection and type casting is handled by sqlalchemy"""
+    def get_harvest_info(self, keys: list[str]) -> dict:
         harvest = self.payload.get("harvest", {})
-        return {f"harvest__{key}": val for key, val in harvest.items()} if harvest else {}
+        return (
+            {f"harvest__{key}": val for key, val in harvest.items() if f"harvest__{key}" in keys}
+            if harvest
+            else {}
+        )
 
     def get_license_title(self) -> str | None:
         license_id = self.payload.get("license")
@@ -223,7 +226,9 @@ class Dataset(Base):
 
         computed_columns = computer.get_computed_columns()
         indicators = computer.get_indicators()
-        harvest_info = computer.get_harvest_info()
+        harvest_info = computer.get_harvest_info(
+            [k for k in cls.__dict__.keys() if k.startswith("harvest__")]
+        )
 
         db_data = {
             **{k: v for k, v in data.items() if hasattr(cls, k)},
