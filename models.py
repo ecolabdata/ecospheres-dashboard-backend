@@ -2,7 +2,7 @@ import re
 from datetime import date, datetime
 from typing import List, Optional
 
-from sqlalchemy import JSON, BigInteger, ForeignKey, Integer, Text
+from sqlalchemy import JSON, ForeignKey, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 MISSING_PREFIX_MESSAGE = "[préfixe absent]"
@@ -136,25 +136,25 @@ class Dataset(Base):
     __tablename__ = "catalog"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    dataset_id: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
+    dataset_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
     organization: Mapped[Optional[str]] = mapped_column(ForeignKey("organizations.organization_id"))
     owner: Mapped[Optional[str]]
-    nb_resources: Mapped[int] = mapped_column(BigInteger)
+    nb_resources: Mapped[int]
     extras: Mapped[dict] = mapped_column(JSON)
     last_modified: Mapped[datetime]
     created_at: Mapped[datetime]
     private: Mapped[bool]
     acronym: Mapped[Optional[str]]
-    slug: Mapped[str] = mapped_column(Text)
+    slug: Mapped[str]
     spatial: Mapped[Optional[dict]] = mapped_column(JSON)
     contact_point: Mapped[Optional[dict]] = mapped_column(JSON)
     deleted: Mapped[bool]
-    description: Mapped[str] = mapped_column(Text)
-    frequency: Mapped[str] = mapped_column(Text)
+    description: Mapped[str]
+    frequency: Mapped[str]
     temporal_coverage: Mapped[Optional[dict]] = mapped_column(JSON)
-    license: Mapped[str] = mapped_column(Text)
-    license__title: Mapped[str] = mapped_column(Text)
+    license: Mapped[str]
+    license__title: Mapped[str]
     quality: Mapped[dict] = mapped_column(JSON)
     internal: Mapped[dict] = mapped_column(JSON)
 
@@ -184,9 +184,9 @@ class Dataset(Base):
     has_contact_point: Mapped[bool]
 
     # other computed columns
-    prefix_harvest_remote_id: Mapped[str] = mapped_column(Text)
-    prefix_harvest_remote_url: Mapped[str] = mapped_column(Text)
-    url_data_gouv: Mapped[str] = mapped_column(Text)
+    prefix_harvest_remote_id: Mapped[str]
+    prefix_harvest_remote_url: Mapped[str]
+    url_data_gouv: Mapped[str]
     consistent_dates: Mapped[bool]
     consistent_temporal_coverage: Mapped[bool]
 
@@ -263,15 +263,15 @@ class Resource(Base):
     __tablename__ = "resources"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    resource_id: Mapped[str] = mapped_column(Text)
+    resource_id: Mapped[str]
     title: Mapped[Optional[str]]
     description: Mapped[Optional[str]]
     type: Mapped[Optional[str]]
     format: Mapped[Optional[str]]
-    url: Mapped[str] = mapped_column(Text)
-    latest: Mapped[str] = mapped_column(Text)
+    url: Mapped[str]
+    latest: Mapped[str]
     checksum: Mapped[Optional[dict]] = mapped_column(JSON)
-    filesize: Mapped[Optional[str]] = mapped_column(Text)
+    filesize: Mapped[Optional[int]]
     mime: Mapped[Optional[str]]
     created_at: Mapped[datetime]
     last_modified: Mapped[datetime]
@@ -313,7 +313,7 @@ class Organization(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     organization_id: Mapped[str] = mapped_column(unique=True)
-    name: Mapped[str] = mapped_column(Text)
+    name: Mapped[str]
     acronym: Mapped[Optional[str]]
     service_public: Mapped[bool]
 
@@ -348,16 +348,16 @@ class Bouquet(Base):
     __tablename__ = "bouquets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    bouquet_id: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
-    name: Mapped[str] = mapped_column(Text)
+    bouquet_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    name: Mapped[str]
     private: Mapped[bool]
     organization: Mapped[Optional[str]] = mapped_column(ForeignKey("organizations.organization_id"))
     owner: Mapped[Optional[str]]
     extras: Mapped[dict] = mapped_column(JSON)
     last_modified: Mapped[datetime]
     created_at: Mapped[datetime]
-    nb_datasets: Mapped[int] = mapped_column(BigInteger)
-    nb_factors: Mapped[int] = mapped_column(BigInteger)
+    nb_datasets: Mapped[int]
+    nb_factors: Mapped[int]
     deleted: Mapped[bool]
 
     # relationships
@@ -395,8 +395,8 @@ class DatasetBouquet(Base):
     __tablename__ = "datasets_bouquets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    bouquet_id: Mapped[str] = mapped_column(Text, ForeignKey("bouquets.bouquet_id"))
-    dataset_id: Mapped[str] = mapped_column(Text, ForeignKey("catalog.dataset_id"))
+    bouquet_id: Mapped[str] = mapped_column(String, ForeignKey("bouquets.bouquet_id"))
+    dataset_id: Mapped[str] = mapped_column(String, ForeignKey("catalog.dataset_id"))
 
     def __repr__(self):
         return f"<DatasetBouquet of <Bouquet {self.bouquet_id}> and <Dataset {self.dataset_id}>"
@@ -407,6 +407,6 @@ class Metric(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     date: Mapped[date]
-    measurement: Mapped[str] = mapped_column(Text)
+    measurement: Mapped[str]
     value: Mapped[float]
-    organization: Mapped[Optional[str]]
+    organization: Optional[Mapped[str]]
