@@ -48,6 +48,7 @@ def load_organizations(env: str = "demo", refresh: bool = False):
                     r.raise_for_status()
             org_db = Organization.from_payload(r.json())
             upsert(app.session, org_db, existing)
+            app.session.commit()
 
 
 @cli
@@ -121,6 +122,7 @@ def load(
         dataset_obj = Dataset.from_payload(d, prefix, licenses)
         existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
         upsert(app.session, dataset_obj, existing)
+        app.session.commit()
 
         if not skip_related:
             for r in iter_rel(d["resources"], quiet=True):
@@ -151,16 +153,21 @@ def compute_metrics(env: str = "demo"):
         metric_obj = Metric(
             date=at, measurement=measurement, value=value, organization=organization
         )
-        existing = app.session.query(Metric).filter_by(date=at, measurement=measurement).first()
+        existing = (
+            app.session.query(Metric)
+            .filter_by(date=at, measurement=measurement, organization=organization)
+            .first()
+        )
         upsert(app.session, metric_obj, existing)
+        app.session.commit()
 
-    organizations = app.session.query(Organization).filter_by(deleted=False).distinct()
-    add_metric("nb_organizations", organizations.count())
+    query = select(Dataset.organization).distinct()
+    org_ids = app.session.execute(query).scalars().all()
+    add_metric("nb_organizations", len(org_ids))
 
     agg = defaultdict(int)
 
-    for org in organizations:
-        org_id = org.organization_id
+    for org_id in org_ids:
         nb_datasets = (
             app.session.query(Dataset).filter_by(organization=org_id, deleted=False).count()
         )
