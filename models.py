@@ -271,7 +271,7 @@ class Resource(Base):
     url: Mapped[str]
     latest: Mapped[str]
     checksum: Mapped[Optional[dict]] = mapped_column(JSON)
-    filesize: Mapped[Optional[int]]
+    filesize: Mapped[Optional[str]]
     mime: Mapped[Optional[str]]
     created_at: Mapped[datetime]
     last_modified: Mapped[datetime]
@@ -409,4 +409,4 @@ class Metric(Base):
     date: Mapped[date]
     measurement: Mapped[str]
     value: Mapped[float]
-    organization: Optional[Mapped[str]]
+    organization: Mapped[Optional[str]]
