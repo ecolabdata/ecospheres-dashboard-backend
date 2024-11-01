@@ -2,7 +2,8 @@ import re
 from datetime import date, datetime
 from typing import List, Optional
 
-from sqlalchemy import JSON, ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 MISSING_PREFIX_MESSAGE = "[préfixe absent]"
@@ -142,22 +143,22 @@ class Dataset(Base):
     organization: Mapped[Optional[str]] = mapped_column(ForeignKey("organizations.organization_id"))
     owner: Mapped[Optional[str]]
     nb_resources: Mapped[int]
-    extras: Mapped[dict] = mapped_column(JSON)
+    extras: Mapped[dict] = mapped_column(JSONB)
     last_modified: Mapped[datetime]
     created_at: Mapped[datetime]
     private: Mapped[bool]
     acronym: Mapped[Optional[str]]
     slug: Mapped[str]
-    spatial: Mapped[Optional[dict]] = mapped_column(JSON)
-    contact_point: Mapped[Optional[dict]] = mapped_column(JSON)
+    spatial: Mapped[Optional[dict]] = mapped_column(JSONB)
+    contact_point: Mapped[Optional[dict]] = mapped_column(JSONB)
     deleted: Mapped[bool]
     description: Mapped[str]
     frequency: Mapped[str]
-    temporal_coverage: Mapped[Optional[dict]] = mapped_column(JSON)
+    temporal_coverage: Mapped[Optional[dict]] = mapped_column(JSONB)
     license: Mapped[str]
     license__title: Mapped[str]
-    quality: Mapped[dict] = mapped_column(JSON)
-    internal: Mapped[dict] = mapped_column(JSON)
+    quality: Mapped[dict] = mapped_column(JSONB)
+    internal: Mapped[dict] = mapped_column(JSONB)
 
     # harvest info columns
     harvest__backend: Mapped[Optional[str]]
@@ -218,14 +219,6 @@ class Dataset(Base):
         data.pop("resources")
         data["organization"] = data["organization"]["id"] if data["organization"] else None
         data["owner"] = data["owner"]["id"] if data["owner"] else None
-        # FIXME: we probably don't need those anymore, the column is explicitly JSON
-        # --> write a migration to migrate {} to null and remove
-        data["extras"] = data["extras"] or {}
-        data["spatial"] = data["spatial"] or {}
-        data["contact_point"] = data["contact_point"] or {}
-        data["temporal_coverage"] = data["temporal_coverage"] or {}
-        data["quality"] = data["quality"] or {}
-        data["internal"] = data["internal"] or {}
 
         computer = DatasetComputedColumns(data, prefix, licenses)
 
@@ -271,14 +264,14 @@ class Resource(Base):
     format: Mapped[Optional[str]]
     url: Mapped[str]
     latest: Mapped[str]
-    checksum: Mapped[Optional[dict]] = mapped_column(JSON)
+    checksum: Mapped[Optional[dict]] = mapped_column(JSONB)
     filesize: Mapped[Optional[str]]
     mime: Mapped[Optional[str]]
     created_at: Mapped[datetime]
     last_modified: Mapped[datetime]
-    harvest: Mapped[Optional[dict]] = mapped_column(JSON)
-    internal: Mapped[dict] = mapped_column(JSON)
-    schema: Mapped[Optional[dict]] = mapped_column(JSON)
+    harvest: Mapped[Optional[dict]] = mapped_column(JSONB)
+    internal: Mapped[dict] = mapped_column(JSONB)
+    schema: Mapped[Optional[dict]] = mapped_column(JSONB)
 
     # indicators columns
     title__exists: Mapped[bool]
@@ -354,7 +347,7 @@ class Bouquet(Base):
     private: Mapped[bool]
     organization: Mapped[Optional[str]] = mapped_column(ForeignKey("organizations.organization_id"))
     owner: Mapped[Optional[str]]
-    extras: Mapped[dict] = mapped_column(JSON)
+    extras: Mapped[dict] = mapped_column(JSONB)
     last_modified: Mapped[datetime]
     created_at: Mapped[datetime]
     nb_datasets: Mapped[int]
