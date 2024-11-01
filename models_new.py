@@ -196,8 +196,9 @@ class Dataset(Base):
     )
 
     @classmethod
-    def from_payload(cls, data: dict, prefix: str, licenses: list) -> "Dataset":
+    def from_payload(cls, payload: dict, prefix: str, licenses: list) -> "Dataset":
         """Build a Dataset instance from an API payload"""
+        data = payload.copy()
         data["deleted"] = False
 
         # some attributes need explicit mapping, for safety or casting,
@@ -232,43 +233,66 @@ class Dataset(Base):
             **harvest_info,
         }
 
-        print(db_data)
-
         return cls(**db_data)
+
+
+class ResourceComputedColumns:
+    def __init__(self, payload: dict):
+        self.payload = payload
+
+    def get_indicators(self) -> dict:
+        return {
+            "title__exists": exists(self.payload["title"], exclude=DEFAULT_STRING_EXCLUDE),
+            "description__exists": exists(
+                self.payload["description"], exclude=DEFAULT_STRING_EXCLUDE
+            ),
+            "type__exists": exists(self.payload["type"], exclude=DEFAULT_STRING_EXCLUDE),
+            "format__exists": exists(self.payload["format"], exclude=DEFAULT_STRING_EXCLUDE),
+        }
 
 
 class Resource(Base):
     __tablename__ = "resources"
 
-    id = Column(Integer, primary_key=True)
-    dataset_id = Column(String, ForeignKey("catalog.dataset_id"))
-    dataset = relationship("Dataset", back_populates="resources")
-    resource_id = Column(String, nullable=False)
-    title = Column(String)
-    title__exists = Column(Boolean)
-    description = Column(String)
-    description__exists = Column(Boolean)
-    type = Column(String)
-    type__exists = Column(Boolean)
-    format = Column(String)
-    format__exists = Column(Boolean)
-    url = Column(String)
-    latest = Column(String)
-    checksum = Column(JSON)
-    filesize = Column(Integer)
-    mime = Column(String)
-    created_at = Column(DateTime)
-    last_modified = Column(DateTime)
-    harvest = Column(JSON)
-    internal = Column(JSON)
-    schema = Column(JSON)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    resource_id: Mapped[str]
+    title: Mapped[Optional[str]]
+    description: Mapped[Optional[str]]
+    type: Mapped[Optional[str]]
+    format: Mapped[Optional[str]]
+    url: Mapped[str]
+    latest: Mapped[str]
+    checksum: Mapped[Optional[dict]] = mapped_column(JSON)
+    filesize: Mapped[Optional[int]]
+    mime: Mapped[Optional[str]]
+    created_at: Mapped[datetime]
+    last_modified: Mapped[datetime]
+    harvest: Mapped[Optional[dict]] = mapped_column(JSON)
+    internal: Mapped[dict] = mapped_column(JSON)
+    schema: Mapped[Optional[dict]] = mapped_column(JSON)
+
+    # indicators columns
+    title__exists: Mapped[bool]
+    description__exists: Mapped[Optional[bool]]
+    type__exists: Mapped[Optional[bool]]
+    format__exists: Mapped[Optional[bool]]
+
+    # relationships
+    dataset_id: Mapped[str] = mapped_column(ForeignKey("catalog.dataset_id"))
+    dataset: Mapped["Dataset"] = relationship("Dataset", back_populates="resources")
 
     @classmethod
-    def from_payload(cls, data: dict, dataset_id: str) -> "Resource":
+    def from_payload(cls, payload: dict, dataset_id: str) -> "Resource":
+        data = payload.copy()
+        data["resource_id"] = data.pop("id")
+
+        computer = ResourceComputedColumns(data)
+
         return cls(
             **{
                 **{k: v for k, v in data.items() if hasattr(cls, k)},
-                dataset_id: dataset_id,
+                **computer.get_indicators(),
+                "dataset_id": dataset_id,
             }
         )
 
