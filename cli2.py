@@ -7,7 +7,7 @@ from minicli import cli, run
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from models_new import Bouquet, Dataset, Organization, Resource
+from models_new import Bouquet, Dataset, DatasetBouquet, Organization, Resource
 
 
 def iter_rel(rel, quiet: bool = False):
@@ -46,7 +46,6 @@ session = Session()
 
 @cli
 def load():
-    # Get database URL from environment
     licenses = requests.get("https://demo.data.gouv.fr/api/1/datasets/licenses/").json()
 
     def upsert_dataset(url: str):
@@ -107,6 +106,28 @@ def load():
     else:
         bouquet_db.id = existing.id
         session.merge(bouquet_db)
+
+    session.commit()
+
+
+@cli
+def load_dataset_bouquet():
+    print("Handling DatasetBouquet")
+
+    dataset_obj = session.query(Dataset).first()
+    bouquet_obj = session.query(Bouquet).first()
+
+    print(dataset_obj, bouquet_obj)
+
+    if dataset_obj and bouquet_obj:
+        existing = (
+            session.query(DatasetBouquet)
+            .filter_by(dataset_id=dataset_obj.dataset_id, bouquet_id=bouquet_obj.bouquet_id)
+            .first()
+        )
+        if not existing:
+            print("Making a link")
+            dataset_obj.bouquets.append(bouquet_obj)
 
     session.commit()
 

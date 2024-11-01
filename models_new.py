@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import JSON, Column, ForeignKey, Integer, String
+from sqlalchemy import JSON, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -393,12 +393,12 @@ class Bouquet(Base):
 class DatasetBouquet(Base):
     __tablename__ = "datasets_bouquets"
 
-    id = Column(Integer, primary_key=True)
-    bouquet_id = Column(String, ForeignKey("bouquets.bouquet_id"))
-    dataset_id = Column(String, ForeignKey("catalog.dataset_id"))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    bouquet_id: Mapped[str] = mapped_column(String, ForeignKey("bouquets.bouquet_id"))
+    dataset_id: Mapped[str] = mapped_column(String, ForeignKey("catalog.dataset_id"))
 
-    dataset = relationship("Dataset", back_populates="bouquets")
-    bouquet = relationship("Bouquet", back_populates="datasets")
+    dataset: Mapped["Dataset"] = relationship("Dataset", back_populates="bouquets")
+    bouquet: Mapped["Bouquet"] = relationship("Bouquet", back_populates="datasets")
 
     def __repr__(self):
         return f"<DatasetBouquet of {self.dataset!r} and {self.bouquet!r}>"
