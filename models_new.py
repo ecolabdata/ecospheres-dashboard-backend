@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, Column, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -320,6 +320,9 @@ class Organization(Base):
     datasets: Mapped[List["Dataset"]] = relationship(
         "Dataset", foreign_keys="Dataset.organization", back_populates="organization_rel"
     )
+    bouquets: Mapped[List["Bouquet"]] = relationship(
+        "Bouquet", foreign_keys="Bouquet.organization", back_populates="organization_rel"
+    )
 
     def __repr__(self):
         return f"<Organization {self.organization_id}>"
@@ -343,42 +346,46 @@ class Organization(Base):
 class Bouquet(Base):
     __tablename__ = "bouquets"
 
-    id = Column(Integer, primary_key=True)
-    bouquet_id = Column(String, unique=True, nullable=False)
-    name = Column(String, nullable=False)
-    private = Column(Boolean)
-    organization = Column(String)
-    owner = Column(String)
-    extras = Column(JSON)
-    last_modified = Column(DateTime)
-    created_at = Column(DateTime)
-    nb_datasets = Column(Integer)
-    nb_factors = Column(Integer)
-    deleted = Column(Boolean)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    bouquet_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    name: Mapped[str]
+    private: Mapped[bool]
+    organization: Mapped[Optional[str]] = mapped_column(ForeignKey("organizations.organization_id"))
+    owner: Mapped[Optional[str]]
+    extras: Mapped[dict] = mapped_column(JSON)
+    last_modified: Mapped[datetime]
+    created_at: Mapped[datetime]
+    nb_datasets: Mapped[int]
+    nb_factors: Mapped[int]
+    deleted: Mapped[bool]
 
-    datasets = relationship("DatasetBouquet", back_populates="bouquet")
+    # relationships
+    datasets: Mapped[List["DatasetBouquet"]] = relationship(
+        "DatasetBouquet", back_populates="bouquet"
+    )
+    # Add the relationship with a different name, so as not to clash with the existing foreign key
+    organization_rel: Mapped[Optional["Organization"]] = relationship(
+        "Organization", foreign_keys=[organization], back_populates="bouquets"
+    )
 
     def __repr__(self):
         return f"<Bouquet {self.bouquet_id}>"
 
     @classmethod
-    def from_payload(cls, data: dict) -> "Bouquet":
+    def from_payload(cls, payload: dict) -> "Bouquet":
+        data = payload.copy()
+        data["deleted"] = False
+
+        data.pop("datasets")
+        data["bouquet_id"] = data.pop("id")
+        data["organization"] = data["organization"]["id"] if data["organization"] else None
+        data["owner"] = data["owner"]["id"] if data["owner"] else None
+
         datasets_properties = data["extras"]["ecospheres"]["datasets_properties"]
-        return cls(
-            **{
-                "bouquet_id": data["id"],
-                "name": data["name"],
-                "private": data["private"],
-                "last_modified": datetime.fromisoformat(data["last_modified"]),
-                "created_at": datetime.fromisoformat(data["created_at"]),
-                "organization": data["organization"]["id"] if data["organization"] else None,
-                "owner": data["owner"]["id"] if data["owner"] else None,
-                "extras": data["extras"],
-                "nb_datasets": len([d for d in datasets_properties if d.get("id")]),
-                "nb_factors": len(datasets_properties),
-                "deleted": False,
-            }
-        )
+        data["nb_datasets"] = len([d for d in datasets_properties if d.get("id")])
+        data["nb_factors"] = len(datasets_properties)
+
+        return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
 
 
 # FIXME: does not match real schema (duplicated dataset columns)

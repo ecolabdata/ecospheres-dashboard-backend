@@ -7,7 +7,7 @@ from minicli import cli, run
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from models_new import Dataset, Organization, Resource
+from models_new import Bouquet, Dataset, Organization, Resource
 
 
 def iter_rel(rel, quiet: bool = False):
@@ -97,6 +97,17 @@ def load():
     upsert_dataset("https://demo.data.gouv.fr/api/2/datasets/66bd4fe809c8aa3c089b64a0/")
     upsert_dataset("https://demo.data.gouv.fr/api/2/datasets/repertoire-national-des-associations/")
 
+    print("Handling bouquets")
+    bouquet = requests.get("https://demo.data.gouv.fr/api/2/topics/itineraires-fraicheur/").json()
+    print(bouquet["id"])
+    bouquet_db = Bouquet.from_payload(bouquet)
+    existing = session.query(Bouquet).filter_by(bouquet_id=bouquet_db.bouquet_id).first()
+    if not existing:
+        session.add(bouquet_db)
+    else:
+        bouquet_db.id = existing.id
+        session.merge(bouquet_db)
+
     session.commit()
 
 
@@ -106,11 +117,21 @@ def read():
         session.query(Organization).filter_by(organization_id="534fff91a3a7292c64a77f53").first()
     )
     if organization:
+        print(organization)
         print([d for d in organization.datasets])
+        print("--")
 
     dataset = session.query(Dataset).filter_by(dataset_id="58e53811c751df03df38f42d").first()
     if dataset:
+        print(dataset)
         print(dataset.resources)
+        print("--")
+
+    bouquet = session.query(Bouquet).filter_by(bouquet_id="66685a015941166af9e09640").first()
+    if bouquet:
+        print(bouquet)
+        print(bouquet.organization)
+        print(bouquet.datasets)
 
 
 if __name__ == "__main__":
