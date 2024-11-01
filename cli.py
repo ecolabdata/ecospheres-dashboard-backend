@@ -5,12 +5,18 @@ import requests
 from minicli import cli, run, wrap
 from sqlalchemy import create_engine, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.types import Float
 
 from config import get_config_value
-from db import get_table, get_tables, query
 from metrics import compute_quality_score
-from models_new import Bouquet, Dataset, DatasetBouquet, Organization, Resource
+from models import (
+    Bouquet,
+    Dataset,
+    DatasetBouquet,
+    DatasetComputedColumns,
+    Metric,
+    Organization,
+    Resource,
+)
 from utils import iter_rel, upsert
 
 
@@ -51,6 +57,7 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
     app.session.execute(text("DELETE FROM datasets_bouquets"))
     app.session.commit()
 
+    # pre-set deleted, will be overwritten by actual upsert
     stmt = update(Bouquet).values(deleted=True)
     app.session.execute(stmt)
     app.session.commit()
@@ -101,22 +108,25 @@ def load(
     request_licenses.raise_for_status()
     licenses = request_licenses.json()
 
-    table = get_table(env, "catalog")
-    if table.exists:
-        # pre-set deleted, will be overwritten by actual upsert
-        query(env, "UPDATE catalog SET deleted = TRUE")
+    # pre-set deleted, will be overwritten by actual upsert
+    stmt = update(Dataset).values(deleted=True)
+    app.session.execute(stmt)
+    app.session.commit()
 
-    resources_table = get_table(env, "resources")
-    if "resources" in get_tables(env) and not skip_related:
-        resources_table.drop()
+    if not skip_related:
+        app.session.execute(text("DELETE FROM resources"))
+        app.session.commit()
 
     for d in iter_rel(topic["datasets"]):
-        dataset = Dataset(d, prefix, licenses)
-        table.upsert(dataset.to_row(), ["dataset_id"], types=Dataset.col_types())
+        dataset_obj = Dataset.from_payload(d, prefix, licenses)
+        existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
+        upsert(app.session, dataset_obj, existing)
 
         if not skip_related:
             for r in iter_rel(d["resources"], quiet=True):
-                resources_table.upsert(Resource.from_payload(d["id"], r), ["resource_id"])
+                resource_obj = Resource.from_payload(r, dataset_obj.dataset_id)
+                app.session.add(resource_obj)
+            app.session.commit()
 
     if not skip_related:
         load_organizations(env=env)
@@ -131,8 +141,6 @@ def compute_metrics(env: str = "demo"):
     """
     Fill the time-series metrics table with today's data
     """
-    catalog = get_table(env, "catalog")
-    metrics = get_table(env, "metrics")
     at = date.today()
 
     def add_metric(
@@ -140,40 +148,38 @@ def compute_metrics(env: str = "demo"):
         value: float | None,
         organization: str | None = None,
     ):
-        metrics.upsert(
-            {
-                "date": at,
-                "measurement": measurement,
-                "value": value,
-                "organization": organization,
-            },
-            ["date", "measurement", "organization"],
-            types={"value": Float},
+        metric_obj = Metric(
+            date=at, measurement=measurement, value=value, organization=organization
         )
+        existing = app.session.query(Metric).filter_by(date=at, measurement=measurement).first()
+        upsert(app.session, metric_obj, existing)
 
-    organizations = [r["organization"] for r in catalog.distinct("organization", deleted=False)]
-    add_metric("nb_organizations", len(organizations))
+    organizations = app.session.query(Organization).filter_by(deleted=False).distinct()
+    add_metric("nb_organizations", organizations.count())
 
     agg = defaultdict(int)
 
     for org in organizations:
-        nb_datasets = catalog.count(deleted=False, organization=org)
-        add_metric("nb_datasets", nb_datasets, organization=org)
+        org_id = org.organization_id
+        nb_datasets = (
+            app.session.query(Dataset).filter_by(organization=org_id, deleted=False).count()
+        )
+        add_metric("nb_datasets", nb_datasets, organization=org_id)
         agg["nb_datasets"] += nb_datasets
 
         # average quality score per organization
-        add_metric("avg_quality__score", compute_quality_score(env, org), organization=org)
+        add_metric("avg_quality__score", compute_quality_score(env, org_id), organization=org_id)
 
-        for indicator in Dataset.indicators:
+        for indicator in DatasetComputedColumns.indicators:
             field = indicator["field"]
             query = {
                 "deleted": False,
                 f"has_{field}": True,
-                "organization": org,
+                "organization": org_id,
             }
             measurement = f"nb_{field}"
-            value = catalog.count(**query)
-            add_metric(measurement, value, organization=org)
+            value = app.session.query(Dataset).filter_by(**query).count()
+            add_metric(measurement, value, organization=org_id)
             agg[measurement] += value
 
     for agg_key, agg_value in agg.items():
@@ -182,20 +188,20 @@ def compute_metrics(env: str = "demo"):
     # global average quality score
     add_metric("avg_quality__score", compute_quality_score(env))
 
-    datasets_bouquets = get_table(env, "datasets_bouquets")
     # nb of associations bouquet <-> dataset from universe
-    add_metric("nb_datasets_from_universe_in_bouquets", datasets_bouquets.count())
+    nb_datasets_bouquets = app.session.query(DatasetBouquet).count()
+    add_metric("nb_datasets_from_universe_in_bouquets", nb_datasets_bouquets)
 
-    bouquets = get_table(env, "bouquets")
-    add_metric("nb_bouquets", bouquets.count(deleted=False))
-    add_metric("nb_bouquets_public", bouquets.count(private=False))
+    bouquets = app.session.query(Bouquet)
+    add_metric("nb_bouquets", bouquets.filter_by(deleted=False).count())
+    add_metric("nb_bouquets_public", bouquets.filter_by(deleted=False, private=False).count())
     add_metric(
         "nb_datasets_in_bouquets",
-        sum(b["nb_datasets"] for b in bouquets.find(deleted=False) if b),
+        sum(b.nb_datasets for b in bouquets.filter_by(deleted=False)),
     )
     add_metric(
         "nb_factors_in_bouquets",
-        sum(b["nb_factors"] for b in bouquets.find(deleted=False) if b),
+        sum(b.nb_factors for b in bouquets.filter_by(deleted=False)),
     )
 
 
