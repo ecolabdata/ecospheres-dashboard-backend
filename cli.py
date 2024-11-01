@@ -168,7 +168,9 @@ def compute_metrics(env: str = "demo"):
         agg["nb_datasets"] += nb_datasets
 
         # average quality score per organization
-        add_metric("avg_quality__score", compute_quality_score(env, org_id), organization=org_id)
+        add_metric(
+            "avg_quality__score", compute_quality_score(app.session, org_id), organization=org_id
+        )
 
         for indicator in DatasetComputedColumns.indicators:
             field = indicator["field"]
@@ -186,7 +188,7 @@ def compute_metrics(env: str = "demo"):
         add_metric(agg_key, agg_value)
 
     # global average quality score
-    add_metric("avg_quality__score", compute_quality_score(env))
+    add_metric("avg_quality__score", compute_quality_score(app.session))
 
     # nb of associations bouquet <-> dataset from universe
     nb_datasets_bouquets = app.session.query(DatasetBouquet).count()
