@@ -1,4 +1,5 @@
-from sqlalchemy import scoped_session, text
+from sqlalchemy import text
+from sqlalchemy.orm import scoped_session
 
 
 def quality_score_query(organization: str | None = None) -> tuple[str, dict]:
