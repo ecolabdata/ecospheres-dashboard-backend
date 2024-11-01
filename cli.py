@@ -1,59 +1,37 @@
-import math
-import time
 from collections import defaultdict
 from datetime import date
 
 import requests
-from minicli import cli, run
+from minicli import cli, run, wrap
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.types import Float
 
 from config import get_config_value
 from db import get_table, get_tables, query
 from metrics import compute_quality_score
-from models import Bouquet, Dataset, DatasetBouquet, Organization, Rel, Resource
+from models import Bouquet, DatasetBouquet, Resource
+from models_new import Dataset, Organization
+from utils import iter_rel, upsert
 
 
-def iter_rel(rel: Rel, quiet: bool = False):
-    current_url = rel["href"]
-    if not quiet:
-        print(f"Fetching {current_url}...")
-    while current_url is not None:
-        while True:
-            r = requests.get(current_url)
-            if not r.ok:
-                if r.status_code == 429:
-                    print("429 hit, waiting a bit")
-                    time.sleep(10)
-                    continue
-                else:
-                    r.raise_for_status()
-            break
-        payload = r.json()
-        total_pages = math.ceil(payload["total"] / payload["page_size"])
-        if not quiet:
-            print(f"Handling page {payload['page']}/{total_pages}")
-        current_url = payload["next_page"]
-        for d in payload["data"]:
-            yield d
+class App:
+    session: scoped_session
+
+
+app = App()
 
 
 @cli
 def load_organizations(env: str = "demo", refresh: bool = False):
     prefix = get_config_value(env, "prefix")
     url = f"https://{prefix}.data.gouv.fr/api/1/organizations"
-    catalog = get_table(env, "catalog")
-    organizations = get_table(env, "organizations")
-    org_ids = set(
-        [
-            d["organization"]
-            for d in catalog.all()
-            if d is not None and d["organization"] is not None
-        ]
-    )
+    query = select(Dataset.organization).distinct()
+    org_ids = app.session.execute(query).scalars().all()
     print(f"Handling {len(org_ids)} organizations from catalog...")
     for org_id in org_ids:
         print(org_id)
-        existing = organizations.find_one(organization_id=org_id)
+        existing = app.session.query(Organization).filter_by(organization_id=org_id).first()
         if not existing or refresh:
             r = requests.get(f"{url}/{org_id}/")
             if not r.ok:
@@ -63,7 +41,8 @@ def load_organizations(env: str = "demo", refresh: bool = False):
                     continue
                 else:
                     r.raise_for_status()
-            organizations.upsert(Organization.from_payload(r.json()), ["organization_id"])
+            org_db = Organization.from_payload(r.json())
+            upsert(app.session, org_db, existing)
 
 
 @cli
@@ -217,5 +196,20 @@ def compute_metrics(env: str = "demo"):
     )
 
 
+@wrap
+def connect(env: str):
+    """Create a wrapped session for cli commands in App.session"""
+    dsn = get_config_value(env, "dsn")
+    print(f"Connecting to {dsn}")
+    engine = create_engine(dsn)
+    connection = engine.connect()
+    app.session = scoped_session(sessionmaker(autoflush=True, bind=engine))
+    yield
+    app.session.close()
+    connection.close()
+
+
 if __name__ == "__main__":
-    run()
+    # env is a global parameter that can be overloaded via --env
+    # every cli command has access to it, but does not _need_ to declare it
+    run(env="demo")
