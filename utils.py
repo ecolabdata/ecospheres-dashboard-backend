@@ -1,14 +1,15 @@
 import math
 import time
-from typing import TypeAlias
+from typing import TypeAlias, TypeVar
 
 import requests
 from sqlalchemy.orm import scoped_session
 
 from models import Rel
-from models_new import Dataset, DatasetBouquet, Organization, Resource
+from models_new import Bouquet, Dataset, DatasetBouquet, Organization, Resource
 
-Model: TypeAlias = Dataset | DatasetBouquet | Organization | Resource
+Model: TypeAlias = Bouquet | Dataset | DatasetBouquet | Organization | Resource
+T = TypeVar("T", bound=Model)
 
 # def upsert(session: scoped_session, data: DeclarativeBaseWithId, cmp_clause: dict):
 #     existing = session.query(type(data)).filter_by(**cmp_clause).first()
@@ -20,13 +21,16 @@ Model: TypeAlias = Dataset | DatasetBouquet | Organization | Resource
 #     session.commit()
 
 
-def upsert(session: scoped_session, new: Model, existing: Model | None):
+def upsert(session: scoped_session, new: T, existing: T | None) -> T:
     if existing:
         new.id = existing.id
         session.merge(new)
+        session.flush()
+        return existing
     else:
         session.add(new)
-    session.commit()
+        session.flush()
+        return new
 
 
 def iter_rel(rel: Rel, quiet: bool = False):

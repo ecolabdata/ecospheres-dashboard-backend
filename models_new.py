@@ -192,8 +192,10 @@ class Dataset(Base):
 
     # relationships
     resources: Mapped[List["Resource"]] = relationship("Resource", back_populates="dataset")
-    bouquets: Mapped[List["DatasetBouquet"]] = relationship(
-        "DatasetBouquet", back_populates="dataset"
+    bouquets: Mapped[list["Bouquet"]] = relationship(
+        "Bouquet",
+        secondary="datasets_bouquets",
+        back_populates="datasets"
     )
     # Add the relationship with a different name, so as not to clash with the existing foreign key
     organization_rel: Mapped[Optional["Organization"]] = relationship(
@@ -361,8 +363,10 @@ class Bouquet(Base):
     deleted: Mapped[bool]
 
     # relationships
-    datasets: Mapped[List["DatasetBouquet"]] = relationship(
-        "DatasetBouquet", back_populates="bouquet"
+    datasets: Mapped[list["Dataset"]] = relationship(
+        "Dataset",
+        secondary="datasets_bouquets",
+        back_populates="bouquets"
     )
     # Add the relationship with a different name, so as not to clash with the existing foreign key
     organization_rel: Mapped[Optional["Organization"]] = relationship(
@@ -398,8 +402,5 @@ class DatasetBouquet(Base):
     bouquet_id: Mapped[str] = mapped_column(String, ForeignKey("bouquets.bouquet_id"))
     dataset_id: Mapped[str] = mapped_column(String, ForeignKey("catalog.dataset_id"))
 
-    dataset: Mapped["Dataset"] = relationship("Dataset", back_populates="bouquets")
-    bouquet: Mapped["Bouquet"] = relationship("Bouquet", back_populates="datasets")
-
     def __repr__(self):
-        return f"<DatasetBouquet of {self.dataset!r} and {self.bouquet!r}>"
+        return f"<DatasetBouquet of <Bouquet {self.bouquet_id}> and <Dataset {self.dataset_id}>"

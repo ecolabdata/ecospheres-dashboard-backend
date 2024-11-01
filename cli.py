@@ -3,15 +3,14 @@ from datetime import date
 
 import requests
 from minicli import cli, run, wrap
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.types import Float
 
 from config import get_config_value
 from db import get_table, get_tables, query
 from metrics import compute_quality_score
-from models import Bouquet, DatasetBouquet, Resource
-from models_new import Dataset, Organization
+from models_new import Bouquet, Dataset, DatasetBouquet, Organization, Resource
 from utils import iter_rel, upsert
 
 
@@ -48,16 +47,13 @@ def load_organizations(env: str = "demo", refresh: bool = False):
 @cli
 def load_bouquets(env: str = "demo", include_private: bool = False):
     prefix = get_config_value(env, "prefix")
-    catalog = get_table(env, "catalog")
 
-    datasets_bouquets = get_table(env, "datasets_bouquets")
-    if datasets_bouquets.exists:
-        datasets_bouquets.drop()
+    app.session.execute(text("DELETE FROM datasets_bouquets"))
+    app.session.commit()
 
-    bouquets = get_table(env, "bouquets")
-    if bouquets.exists:
-        # pre-set deleted, will be overwritten by actual upsert
-        query(env, "UPDATE bouquets SET deleted = TRUE")
+    stmt = update(Bouquet).values(deleted=True)
+    app.session.execute(stmt)
+    app.session.commit()
 
     universe_name = get_config_value(env, "universe_name")
     url = f"https://{prefix}.data.gouv.fr/api/2/topics/?tag={universe_name}"
@@ -69,8 +65,15 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
             "href": url,
         }
     ):
-        bouquets.upsert(Bouquet.from_payload(bouquet), ["bouquet_id"])
-        datasets_bouquets.insert_many(DatasetBouquet.from_payload(bouquet, catalog))
+        existing = app.session.query(Bouquet).filter_by(bouquet_id=bouquet["id"]).first()
+        bouquet_obj = Bouquet.from_payload(bouquet)
+        bouquet_obj = upsert(app.session, bouquet_obj, existing)
+        for dataset in iter_rel(bouquet["datasets"], quiet=True):
+            dataset_obj = app.session.query(Dataset).filter_by(dataset_id=dataset["id"]).first()
+            print(bouquet_obj, dataset_obj)
+            if dataset_obj:
+                bouquet_obj.datasets.append(dataset_obj)
+        app.session.commit()
 
 
 @cli
