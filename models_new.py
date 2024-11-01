@@ -1,9 +1,10 @@
 import re
 from datetime import datetime
+from typing import List, Optional
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 MISSING_PREFIX_MESSAGE = "[préfixe absent]"
 
@@ -133,60 +134,66 @@ class DatasetComputedColumns:
 class Dataset(Base):
     __tablename__ = "catalog"
 
-    id = Column(Integer, primary_key=True)
-    dataset_id = Column(String, unique=True, nullable=False)
-    title = Column(String, nullable=False)
-    organization = Column(String, ForeignKey("organizations.organization_id"))
-    owner = Column(String)
-    nb_resources = Column(Integer)
-    extras = Column(JSON)
-    last_modified = Column(DateTime)
-    created_at = Column(DateTime)
-    private = Column(Boolean)
-    acronym = Column(String)
-    slug = Column(String)
-    spatial = Column(JSON)
-    contact_point = Column(JSON)
-    deleted = Column(Boolean)
-    description = Column(String)
-    frequency = Column(String)
-    temporal_coverage = Column(JSON)
-    license = Column(String)
-    license__title = Column(String)
-    quality = Column(JSON)
-    internal = Column(JSON)
-    # harvest info columns, extracted from harvest
-    harvest__backend = Column(String)
-    harvest__created_at = Column(DateTime)
-    harvest__dct_identifier = Column(String)
-    harvest__domain = Column(String)
-    harvest__last_update = Column(DateTime)
-    harvest__modified_at = Column(DateTime)
-    harvest__remote_id = Column(String)
-    harvest__remote_url = Column(String)
-    harvest__source_id = Column(String)
-    harvest__uri = Column(String)
-    # indicators columns, computed
-    has_license = Column(Boolean)
-    has_harvest__created_at = Column(Boolean)
-    has_harvest__modified_at = Column(Boolean)
-    has_harvest__remote_id = Column(Boolean)
-    has_harvest__remote_url = Column(Boolean)
-    has_resources__total = Column(Boolean)
-    has_spatial__zones = Column(Boolean)
-    has_spatial__geom = Column(Boolean)
-    has_temporal_coverage = Column(Boolean)
-    has_frequency = Column(Boolean)
-    has_contact_point = Column(Boolean)
-    # other computed columns
-    prefix_harvest_remote_id = Column(String)
-    prefix_harvest_remote_url = Column(String)
-    url_data_gouv = Column(String)
-    consistent_dates = Column(Boolean)
-    consistent_temporal_coverage = Column(Boolean)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dataset_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    organization: Mapped[Optional[str]] = mapped_column(ForeignKey("organizations.organization_id"))
+    owner: Mapped[Optional[str]]
+    nb_resources: Mapped[int]
+    extras: Mapped[dict] = mapped_column(JSON)
+    last_modified: Mapped[datetime]
+    created_at: Mapped[datetime]
+    private: Mapped[bool]
+    acronym: Mapped[Optional[str]]
+    slug: Mapped[str]
+    spatial: Mapped[Optional[dict]] = mapped_column(JSON)
+    contact_point: Mapped[Optional[dict]] = mapped_column(JSON)
+    deleted: Mapped[bool]
+    description: Mapped[str]
+    frequency: Mapped[str]
+    temporal_coverage: Mapped[Optional[dict]] = mapped_column(JSON)
+    license: Mapped[str]
+    license__title: Mapped[str]
+    quality: Mapped[dict] = mapped_column(JSON)
+    internal: Mapped[dict] = mapped_column(JSON)
 
-    resources = relationship("Resource", back_populates="dataset")
-    bouquets = relationship("DatasetBouquet", back_populates="dataset")
+    # harvest info columns
+    harvest__backend: Mapped[Optional[str]]
+    harvest__created_at: Mapped[Optional[datetime]]
+    harvest__dct_identifier: Mapped[Optional[str]]
+    harvest__domain: Mapped[Optional[str]]
+    harvest__last_update: Mapped[Optional[datetime]]
+    harvest__modified_at: Mapped[Optional[datetime]]
+    harvest__remote_id: Mapped[Optional[str]]
+    harvest__remote_url: Mapped[Optional[str]]
+    harvest__source_id: Mapped[Optional[str]]
+    harvest__uri: Mapped[Optional[str]]
+
+    # indicators columns
+    has_license: Mapped[bool]
+    has_harvest__created_at: Mapped[bool]
+    has_harvest__modified_at: Mapped[bool]
+    has_harvest__remote_id: Mapped[bool]
+    has_harvest__remote_url: Mapped[bool]
+    has_resources__total: Mapped[bool]
+    has_spatial__zones: Mapped[bool]
+    has_spatial__geom: Mapped[bool]
+    has_temporal_coverage: Mapped[bool]
+    has_frequency: Mapped[bool]
+    has_contact_point: Mapped[bool]
+
+    # other computed columns
+    prefix_harvest_remote_id: Mapped[str]
+    prefix_harvest_remote_url: Mapped[str]
+    url_data_gouv: Mapped[str]
+    consistent_dates: Mapped[bool]
+    consistent_temporal_coverage: Mapped[bool]
+
+    # relationships
+    resources: Mapped[List["Resource"]] = relationship("Resource", back_populates="dataset")
+    bouquets: Mapped[List["DatasetBouquet"]] = relationship(
+        "DatasetBouquet", back_populates="dataset"
+    )
 
     @classmethod
     def from_payload(cls, data: dict, prefix: str, licenses: list) -> "Dataset":
@@ -202,7 +209,7 @@ class Dataset(Base):
         data["organization"] = data["organization"]["id"] if data["organization"] else None
         data["owner"] = data["owner"]["id"] if data["owner"] else None
         # FIXME: we probably don't need those anymore, the column is explicitly JSON
-        # write a migration to migrate {} to null and remove
+        # --> write a migration to migrate {} to null and remove
         data["extras"] = data["extras"] or {}
         data["spatial"] = data["spatial"] or {}
         data["contact_point"] = data["contact_point"] or {}
