@@ -10,6 +10,7 @@ MISSING_PREFIX_MESSAGE = "[préfixe absent]"
 DEFAULT_EXCLUDE = (None,)
 DEFAULT_LIST_EXCLUDE = (None, [])
 DEFAULT_STRING_EXCLUDE = (None, "")
+DEFAULT_JSON_EXCLUDE = (None, {})
 
 
 class Base(DeclarativeBase):
@@ -32,9 +33,9 @@ class DatasetComputedColumns:
         {"field": "resources__total", "exclude": (0,)},
         {"field": "spatial__zones", "exclude": DEFAULT_LIST_EXCLUDE},
         {"field": "spatial__geom", "exclude": DEFAULT_LIST_EXCLUDE},
-        {"field": "temporal_coverage", "exclude": DEFAULT_EXCLUDE},
+        {"field": "temporal_coverage", "exclude": DEFAULT_JSON_EXCLUDE},
         {"field": "frequency", "exclude": DEFAULT_STRING_EXCLUDE + ("unknown",)},
-        {"field": "contact_point", "exclude": DEFAULT_EXCLUDE},
+        {"field": "contact_point", "exclude": DEFAULT_JSON_EXCLUDE},
     ]
 
     def __init__(self, payload: dict, prefix: str, licenses: list) -> None:
