@@ -3,10 +3,11 @@ import os
 import time
 
 import requests
+from minicli import cli, run
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from models_new import Dataset, Resource
+from models_new import Dataset, Organization, Resource
 
 
 def iter_rel(rel, quiet: bool = False):
@@ -33,18 +34,19 @@ def iter_rel(rel, quiet: bool = False):
             yield d
 
 
-def main():
+db_url = os.environ.get("DATABASE_URL_PROD")
+if not db_url:
+    raise ValueError("Error: DATABASE_URL_PROD environment variable not set")
+
+# Create engine and session
+engine = create_engine(db_url)
+Session = sessionmaker(bind=engine)
+session = Session()
+
+
+@cli
+def load():
     # Get database URL from environment
-    db_url = os.environ.get("DATABASE_URL_PROD")
-    if not db_url:
-        print("Error: DATABASE_URL_PROD environment variable not set")
-        return
-
-    # Create engine and session
-    engine = create_engine(db_url)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-
     licenses = requests.get("https://demo.data.gouv.fr/api/1/datasets/licenses/").json()
 
     def upsert_dataset(url: str):
@@ -75,6 +77,20 @@ def main():
                 resource_db.id = existing.id
                 session.merge(resource_db)
 
+        org = requests.get(dataset["organization"]["uri"]).json()
+        print("Handling organization", org["id"])
+        organization_db = Organization.from_payload(org)
+        existing = (
+            session.query(Organization)
+            .filter_by(organization_id=organization_db.organization_id)
+            .first()
+        )
+        if not existing:
+            session.add(organization_db)
+        else:
+            organization_db.id = existing.id
+            session.merge(organization_db)
+
     upsert_dataset(
         "https://demo.data.gouv.fr/api/2/datasets/etat-davancement-des-eoliennes-dans-le-departement-de-la-marne-1/"
     )
@@ -84,5 +100,18 @@ def main():
     session.commit()
 
 
+@cli
+def read():
+    organization = (
+        session.query(Organization).filter_by(organization_id="534fff91a3a7292c64a77f53").first()
+    )
+    if organization:
+        print([d for d in organization.datasets])
+
+    dataset = session.query(Dataset).filter_by(dataset_id="58e53811c751df03df38f42d").first()
+    if dataset:
+        print(dataset.resources)
+
+
 if __name__ == "__main__":
-    main()
+    run()

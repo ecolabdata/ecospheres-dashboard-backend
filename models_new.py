@@ -194,6 +194,13 @@ class Dataset(Base):
     bouquets: Mapped[List["DatasetBouquet"]] = relationship(
         "DatasetBouquet", back_populates="dataset"
     )
+    # Add the relationship with a different name, so as not to clash with the existing foreign key
+    organization_rel: Mapped[Optional["Organization"]] = relationship(
+        "Organization", foreign_keys=[organization], back_populates="datasets"
+    )
+
+    def __repr__(self):
+        return f"<Dataset {self.dataset_id}>"
 
     @classmethod
     def from_payload(cls, payload: dict, prefix: str, licenses: list) -> "Dataset":
@@ -281,6 +288,9 @@ class Resource(Base):
     dataset_id: Mapped[str] = mapped_column(ForeignKey("catalog.dataset_id"))
     dataset: Mapped["Dataset"] = relationship("Dataset", back_populates="resources")
 
+    def __repr__(self):
+        return f"<Resource {self.resource_id} of {self.dataset!r}>"
+
     @classmethod
     def from_payload(cls, payload: dict, dataset_id: str) -> "Resource":
         data = payload.copy()
@@ -300,19 +310,31 @@ class Resource(Base):
 class Organization(Base):
     __tablename__ = "organizations"
 
-    id = Column(Integer, primary_key=True)
-    organization_id = Column(String, unique=True, nullable=False)
-    name = Column(String, nullable=False)
-    acronym = Column(String)
-    service_public = Column(Boolean)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    organization_id: Mapped[str] = mapped_column(unique=True)
+    name: Mapped[str]
+    acronym: Mapped[Optional[str]]
+    service_public: Mapped[bool]
+
+    # relationships
+    datasets: Mapped[List["Dataset"]] = relationship(
+        "Dataset", foreign_keys="Dataset.organization", back_populates="organization_rel"
+    )
+
+    def __repr__(self):
+        return f"<Organization {self.organization_id}>"
 
     @classmethod
-    def from_payload(cls, data: dict) -> "Organization":
+    def from_payload(cls, payload: dict) -> "Organization":
+        data = payload.copy()
+        data["organization_id"] = data.pop("id")
+
         return cls(
             **{
                 **{k: v for k, v in data.items() if hasattr(cls, k)},
                 "service_public": all(
-                    k in data.get("badges", []) for k in ["public-service", "certified"]
+                    k in [b["kind"] for b in data.get("badges", [])]
+                    for k in ["public-service", "certified"]
                 ),
             }
         )
@@ -335,6 +357,9 @@ class Bouquet(Base):
     deleted = Column(Boolean)
 
     datasets = relationship("DatasetBouquet", back_populates="bouquet")
+
+    def __repr__(self):
+        return f"<Bouquet {self.bouquet_id}>"
 
     @classmethod
     def from_payload(cls, data: dict) -> "Bouquet":
@@ -367,3 +392,6 @@ class DatasetBouquet(Base):
 
     dataset = relationship("Dataset", back_populates="bouquets")
     bouquet = relationship("Bouquet", back_populates="datasets")
+
+    def __repr__(self):
+        return f"<DatasetBouquet of {self.dataset!r} and {self.bouquet!r}>"
