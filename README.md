@@ -17,7 +17,13 @@ Install the required dependencies through `requirements.txt` or `requirements-de
 Export the env var needed for the script to find the database:
 
 ```shell
-export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/demo
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dashboard_backend
+```
+
+Bootstrap the database:
+
+```shell
+python cli.py init-db
 ```
 
 Launch the main script:

@@ -1,7 +1,7 @@
--- create a database for every env
+-- create a database for every env (match production names for easy restore)
 
-CREATE DATABASE demo;
-GRANT ALL PRIVILEGES ON DATABASE demo TO postgres;
+CREATE DATABASE dashboard_backend;
+GRANT ALL PRIVILEGES ON DATABASE dashboard_backend TO postgres;
 
-CREATE DATABASE prod;
-GRANT ALL PRIVILEGES ON DATABASE prod TO postgres;
+CREATE DATABASE dashboard_backend_prod;
+GRANT ALL PRIVILEGES ON DATABASE dashboard_backend_prod TO postgres;
