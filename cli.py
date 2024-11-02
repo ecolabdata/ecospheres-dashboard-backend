@@ -52,7 +52,6 @@ def load_organizations(env: str = "demo", refresh: bool = False):
                     r.raise_for_status()
             org_db = Organization.from_payload(r.json())
             upsert(app.session, org_db, existing)
-            app.session.commit()
 
 
 @cli
@@ -125,7 +124,6 @@ def load(
         dataset_obj = Dataset.from_payload(d, prefix, licenses)
         existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
         upsert(app.session, dataset_obj, existing)
-        app.session.commit()
 
         if not skip_related:
             for r in iter_rel(d["resources"], quiet=True):
@@ -163,7 +161,6 @@ def compute_metrics(env: str = "demo"):
             .first()
         )
         upsert(app.session, metric_obj, existing)
-        app.session.commit()
 
     query = select(Dataset.organization).distinct()
     org_ids = app.session.execute(query).scalars().all()

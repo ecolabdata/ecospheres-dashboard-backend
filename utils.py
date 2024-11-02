@@ -11,16 +11,19 @@ Model: TypeAlias = Bouquet | Dataset | Metric | Organization | Resource
 T = TypeVar("T", bound=Model)
 
 
-def upsert(session: scoped_session, new: T, existing: T | None) -> T:
+def upsert(session: scoped_session, new: T, existing: T | None, auto_commit: bool = True) -> T:
     if existing:
         new.id = existing.id
         session.merge(new)
-        session.flush()
-        return existing
+        result = existing
     else:
         session.add(new)
-        session.flush()
-        return new
+        result = new
+    # creates the id if needed
+    session.flush()
+    if auto_commit:
+        session.commit()
+    return result
 
 
 class Rel(TypedDict):
