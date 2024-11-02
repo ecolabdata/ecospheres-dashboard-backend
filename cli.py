@@ -31,27 +31,25 @@ class App:
 app = App()
 
 
-@cli
-def load_organizations(env: str = "demo", refresh: bool = False):
+# TODO: add a cli command to refresh organizations info from API
+def load_organization(env: str, organization_id: str) -> Organization | None:
     prefix = get_config_value(env, "prefix")
-    url = f"https://{prefix}.data.gouv.fr/api/1/organizations"
-    query = select(Dataset.organization).distinct()
-    org_ids = app.session.execute(query).scalars().all()
-    print(f"Handling {len(org_ids)} organizations from catalog...")
-    for org_id in org_ids:
-        print(org_id)
-        existing = app.session.query(Organization).filter_by(organization_id=org_id).first()
-        if not existing or refresh:
-            r = requests.get(f"{url}/{org_id}/")
-            if not r.ok:
-                if r.status_code == 410:
-                    # TODO: delete from db?
-                    print(f"Warning: organization {org_id} has been deleted")
-                    continue
-                else:
-                    r.raise_for_status()
-            org_db = Organization.from_payload(r.json())
-            upsert(app.session, org_db, existing)
+    url = f"https://{prefix}.data.gouv.fr/api/1/organizations/{organization_id}/"
+    organization = (
+        app.session.query(Organization).filter_by(organization_id=organization_id).first()
+    )
+    if not organization:
+        r = requests.get(url)
+        if not r.ok:
+            if r.status_code == 410:
+                # TODO: delete from db?
+                print(f"Warning: organization {organization_id} has been deleted")
+                return
+            else:
+                r.raise_for_status()
+        org_db = Organization.from_payload(r.json())
+        organization = upsert(app.session, org_db, organization)
+    return organization
 
 
 @cli
@@ -95,8 +93,8 @@ def load(
     """
     Load objects from our universe into the database:
     - datasets
+    - organizations
     - resources (related)
-    - organizations (related)
     - bouquets (related)
 
     And compute associated metrics.
@@ -121,6 +119,8 @@ def load(
         app.session.commit()
 
     for d in iter_rel(topic["datasets"]):
+        if organization_id := d.get("organization").get("id"):
+            load_organization(env, organization_id)
         dataset_obj = Dataset.from_payload(d, prefix, licenses)
         existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
         upsert(app.session, dataset_obj, existing)
@@ -132,7 +132,6 @@ def load(
             app.session.commit()
 
     if not skip_related:
-        load_organizations(env=env)
         load_bouquets(env=env, include_private=True)
 
     if not skip_metrics:
