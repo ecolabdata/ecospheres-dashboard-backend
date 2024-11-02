@@ -6,8 +6,6 @@ from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-MISSING_PREFIX_MESSAGE = "[préfixe absent]"
-
 DEFAULT_EXCLUDE = (None,)
 DEFAULT_LIST_EXCLUDE = (None, [])
 DEFAULT_STRING_EXCLUDE = (None, "")
