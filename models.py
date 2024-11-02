@@ -156,7 +156,7 @@ class Dataset(Base):
     frequency: Mapped[str]
     temporal_coverage: Mapped[Optional[dict]] = mapped_column(JSONB)
     license: Mapped[str]
-    license__title: Mapped[str]
+    license__title: Mapped[Optional[str]]
     quality: Mapped[dict] = mapped_column(JSONB)
     internal: Mapped[dict] = mapped_column(JSONB)
 
@@ -315,9 +315,6 @@ class Organization(Base):
     datasets: Mapped[List["Dataset"]] = relationship(
         "Dataset", foreign_keys="Dataset.organization", back_populates="organization_rel"
     )
-    bouquets: Mapped[List["Bouquet"]] = relationship(
-        "Bouquet", foreign_keys="Bouquet.organization", back_populates="organization_rel"
-    )
 
     def __repr__(self):
         return f"<Organization {self.organization_id}>"
@@ -345,7 +342,8 @@ class Bouquet(Base):
     bouquet_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     name: Mapped[str]
     private: Mapped[bool]
-    organization: Mapped[Optional[str]] = mapped_column(ForeignKey("organizations.organization_id"))
+    # no foreign key on organization because it's not always in the db
+    organization: Mapped[Optional[str]]
     owner: Mapped[Optional[str]]
     extras: Mapped[dict] = mapped_column(JSONB)
     last_modified: Mapped[datetime]
@@ -357,10 +355,6 @@ class Bouquet(Base):
     # relationships
     datasets: Mapped[list["Dataset"]] = relationship(
         "Dataset", secondary="datasets_bouquets", back_populates="bouquets"
-    )
-    # Add the relationship with a different name, so as not to clash with the existing foreign key
-    organization_rel: Mapped[Optional["Organization"]] = relationship(
-        "Organization", foreign_keys=[organization], back_populates="bouquets"
     )
 
     def __repr__(self):
@@ -383,8 +377,6 @@ class Bouquet(Base):
         return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
 
 
-# FIXME: does not match real schema (duplicated dataset columns)
-# the fix is probably to remove the existing table
 class DatasetBouquet(Base):
     __tablename__ = "datasets_bouquets"
 
@@ -404,3 +396,6 @@ class Metric(Base):
     measurement: Mapped[str]
     value: Mapped[float]
     organization: Mapped[Optional[str]]
+
+    def __repr__(self) -> str:
+        return f"<Metric {self.measurement}{' of ' + self.organization if self.organization else ''} at {self.date}>"
