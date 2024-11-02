@@ -215,8 +215,6 @@ class Dataset(Base):
         # the others will be taken as is from payload if they're defined on class
         data["dataset_id"] = data.pop("id")
         data["nb_resources"] = data["resources"]["total"]
-        # conflicts with relationship, needs to be removed
-        data.pop("resources")
         data["organization"] = data["organization"]["id"] if data["organization"] else None
         data["owner"] = data["owner"]["id"] if data["owner"] else None
 
@@ -228,14 +226,17 @@ class Dataset(Base):
             [k for k in cls.__dict__.keys() if k.startswith("harvest__")]
         )
 
-        db_data = {
-            **{k: v for k, v in data.items() if hasattr(cls, k)},
-            **computed_columns,
-            **indicators,
-            **harvest_info,
-        }
+        # conflicts with relationship, needs to be removed after indicators are computed
+        data.pop("resources")
 
-        return cls(**db_data)
+        return cls(
+            **{
+                **{k: v for k, v in data.items() if hasattr(cls, k)},
+                **computed_columns,
+                **indicators,
+                **harvest_info,
+            }
+        )
 
 
 class ResourceComputedColumns:
