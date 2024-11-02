@@ -6,7 +6,7 @@ def quality_score_query(organization: str | None = None) -> tuple[str, dict]:
     kwargs = {}
     q = "SELECT AVG((quality->>'score')::numeric) AS mean_score FROM catalog"
     if organization:
-        q += " WHERE organization = :org"
+        q = f"{q} WHERE organization = :org"
         kwargs["org"] = organization
     return q, kwargs
 
