@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 from datetime import date
 
@@ -6,9 +7,12 @@ from minicli import cli, run, wrap
 from sqlalchemy import create_engine, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
 
+from alembic import command
+from alembic.config import Config
 from config import get_config_value
 from metrics import compute_quality_score
 from models import (
+    Base,
     Bouquet,
     Dataset,
     DatasetBouquet,
@@ -78,7 +82,6 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
         bouquet_obj = upsert(app.session, bouquet_obj, existing)
         for dataset in iter_rel(bouquet["datasets"], quiet=True):
             dataset_obj = app.session.query(Dataset).filter_by(dataset_id=dataset["id"]).first()
-            print(bouquet_obj, dataset_obj)
             if dataset_obj:
                 bouquet_obj.datasets.append(dataset_obj)
         app.session.commit()
@@ -143,6 +146,7 @@ def compute_metrics(env: str = "demo"):
     """
     Fill the time-series metrics table with today's data
     """
+    print("Computing metrics...")
     at = date.today()
 
     def add_metric(
@@ -214,11 +218,22 @@ def compute_metrics(env: str = "demo"):
     )
 
 
+@cli
+def init_db(env: str = "demo"):
+    """Create the tables in the env database from current schema"""
+    engine = app.session.get_bind()
+    Base.metadata.create_all(engine)
+    # mark current schema as up-to-date re alembic
+    os.environ["ALEMBIC_ENV"] = env
+    alembic_cfg = Config("alembic.ini")
+    command.stamp(alembic_cfg, "head")
+
+
 @wrap
 def connect(env: str):
     """Create a wrapped session for cli commands in App.session"""
+    print(f"Working on env {env!r}")
     dsn = get_config_value(env, "dsn")
-    print(f"Connecting to {dsn}")
     engine = create_engine(dsn)
     connection = engine.connect()
     app.session = scoped_session(sessionmaker(autoflush=True, bind=engine))
