@@ -36,7 +36,26 @@ It will download the catalog from data.gouv.fr and update or create the rows in 
 
 ## Schema changes
 
+### Using alembic
+
+Apply pending migrations:
+
+```shell
+ALEMBIC_ENV=(demo|prod) alembic upgrade head
+```
+
+`demo` env will use `DATABASE_URL` env var, `prod` env will use `DATABASE_URL_PROD` env var (same as the load script).
+
+Create a new migration (diff code schema and database schema):
+
+```shell
+ALEMBIC_ENV=(demo|prod) alembic revision --autogenerate -m "message"
+```
+
+### Legacy
+
 - 2024-10-08: `catalog.harvest_extras` has been deprecated, `catalog.harvest` is now used. Quick migration: `ALTER TABLE catalog DROP COLUMN IF EXISTS harvest_extras;`
+- 2024-11-02: the migration to SQLAlchemy [#19](https://github.com/ecolabdata/ecospheres-dashboard-backend/pull/19) introduces migrations support.
 
 ## Linting
 
