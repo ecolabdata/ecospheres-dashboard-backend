@@ -1,5 +1,7 @@
 import os
+import sys
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 
 import requests
@@ -84,11 +86,29 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
         app.session.commit()
 
 
+def process_dataset(env: str, d: dict, licenses: list, skip_related: bool) -> None:
+    """Process a single dataset and its resources"""
+    prefix = get_config_value(env, "prefix")
+    if organization_id := d.get("organization", {}).get("id"):
+        load_organization(env, organization_id)
+
+    dataset_obj = Dataset.from_payload(d, prefix, licenses)
+    existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
+    upsert(app.session, dataset_obj, existing)
+
+    if not skip_related:
+        for r in iter_rel(d["resources"], quiet=True):
+            resource_obj = Resource.from_payload(r, dataset_obj.dataset_id)
+            app.session.add(resource_obj)
+        app.session.commit()
+
+
 @cli
 def load(
     env: str = "demo",
     skip_related: bool = False,
     skip_metrics: bool = False,
+    max_workers: int = 4,
 ):
     """
     Load objects from our universe into the database:
@@ -118,18 +138,23 @@ def load(
         app.session.execute(text("DELETE FROM resources"))
         app.session.commit()
 
-    for d in iter_rel(topic["datasets"]):
-        if organization_id := d.get("organization").get("id"):
-            load_organization(env, organization_id)
-        dataset_obj = Dataset.from_payload(d, prefix, licenses)
-        existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
-        upsert(app.session, dataset_obj, existing)
-
-        if not skip_related:
-            for r in iter_rel(d["resources"], quiet=True):
-                resource_obj = Resource.from_payload(r, dataset_obj.dataset_id)
-                app.session.add(resource_obj)
-            app.session.commit()
+    # Create a thread pool for parallel processing
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = []
+        for dataset in iter_rel(topic["datasets"]):
+            future = executor.submit(
+                process_dataset,
+                env,
+                dataset,
+                licenses,
+                skip_related=skip_related,
+            )
+            futures.append(future)
+        for future in futures:
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Failed to process dataset: {str(e)}", file=sys.stderr)
 
     if not skip_related:
         load_bouquets(env=env, include_private=True)
