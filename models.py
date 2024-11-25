@@ -37,7 +37,7 @@ class DatasetComputedColumns:
         {"field": "contact_point", "exclude": DEFAULT_JSON_EXCLUDE},
     ]
 
-    def __init__(self, payload: dict, prefix: str, licenses: list) -> None:
+    def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
         self.payload = payload
         self.prefix = prefix
         self.licenses = licenses
