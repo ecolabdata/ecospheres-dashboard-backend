@@ -380,7 +380,7 @@ class DatasetBouquet(Base):
     dataset_id: Mapped[str] = mapped_column(String, ForeignKey("catalog.dataset_id"))
 
     def __repr__(self):
-        return f"<DatasetBouquet of <Bouquet {self.bouquet_id}> and <Dataset {self.dataset_id}>"
+        return f"<DatasetBouquet of <Bouquet {self.bouquet_id}> and <Dataset {self.dataset_id}>>"
 
 
 class Metric(Base):
