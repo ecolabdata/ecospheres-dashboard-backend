@@ -110,12 +110,8 @@ class DatasetComputedColumns:
         return end > start
 
     def get_harvest_info(self, keys: list[str]) -> dict:
-        harvest = self.payload.get("harvest", {})
-        return (
-            {f"harvest__{key}": val for key, val in harvest.items() if f"harvest__{key}" in keys}
-            if harvest
-            else {}
-        )
+        harvest = self.payload.get("harvest") or {}
+        return {f"harvest__{key}": val for key, val in harvest.items() if f"harvest__{key}" in keys}
 
     def get_license_title(self) -> str | None:
         license_id = self.payload.get("license")
