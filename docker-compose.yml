@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres
+    # match production version
+    image: postgres:16.4
     environment:
       - POSTGRES_PASSWORD=postgres
     ports:

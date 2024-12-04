@@ -1,27 +1,46 @@
 import re
-from collections import defaultdict
-from datetime import datetime
-from typing import Callable, List, OrderedDict, Type, TypedDict
+from datetime import date, datetime
+from typing import List, Optional
 
-from dataset import Table
+from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 DEFAULT_EXCLUDE = (None,)
 DEFAULT_LIST_EXCLUDE = (None, [])
 DEFAULT_STRING_EXCLUDE = (None, "")
+DEFAULT_JSON_EXCLUDE = (None, {})
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 def exists(element, exclude: tuple = DEFAULT_EXCLUDE):
     return element not in exclude
 
 
-class BaseModel:
+class DatasetComputedColumns:
     MISSING_PREFIX_MESSAGE = "[préfixe absent]"
 
-    indicators = []
+    indicators = [
+        {"field": "license", "exclude": DEFAULT_STRING_EXCLUDE + ("notspecified",)},
+        {"field": "harvest__created_at", "exclude": DEFAULT_EXCLUDE},
+        {"field": "harvest__modified_at", "exclude": DEFAULT_EXCLUDE},
+        {"field": "harvest__remote_id", "exclude": DEFAULT_STRING_EXCLUDE},
+        {"field": "harvest__remote_url", "exclude": DEFAULT_STRING_EXCLUDE},
+        {"field": "resources__total", "exclude": (0,)},
+        {"field": "spatial__zones", "exclude": DEFAULT_LIST_EXCLUDE},
+        {"field": "spatial__geom", "exclude": DEFAULT_LIST_EXCLUDE},
+        {"field": "temporal_coverage", "exclude": DEFAULT_JSON_EXCLUDE},
+        {"field": "frequency", "exclude": DEFAULT_STRING_EXCLUDE + ("unknown",)},
+        {"field": "contact_point", "exclude": DEFAULT_JSON_EXCLUDE},
+    ]
 
-    def __init__(self, payload: dict, prefix: str) -> None:
+    def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
         self.payload = payload
         self.prefix = prefix
+        self.licenses = licenses
 
     def get_attr_by_path(self, path: str, sep: str = "__"):
         parts = path.split(sep)
@@ -48,20 +67,15 @@ class BaseModel:
     def get_prefix_or_fallback_from(self, key) -> str:
         try:
             harvest = self.payload["harvest"]
-
             if harvest is None:
                 raise KeyError
-
             url = harvest[key]
-
             if url is None:
                 raise KeyError
-
         except KeyError:
             return self.MISSING_PREFIX_MESSAGE
 
         m = re.match("^(.*/)[^/]+$", url)
-
         if m:
             return m.group(1)
 
@@ -69,313 +83,314 @@ class BaseModel:
 
     def get_url_data_gouv(self) -> str:
         url = f"https://{self.prefix}.data.gouv.fr/fr/datasets/"
-        id = self.payload["id"]
-
+        id = self.payload["dataset_id"]
         return f'<a href="{url}{id}" target="_blank">{id}</a>'
 
     def get_consistent_dates(self) -> bool:
         created_at = self.payload.get("created_at")
         modified_at = self.payload.get("last_modified")
-
         if created_at is None:
             return modified_at is None
-
         if modified_at is None:
             return True
-
         return modified_at >= created_at
 
     def get_consistent_temporal_coverage(self) -> bool:
         temporal_coverage = self.payload["temporal_coverage"]
-
         if temporal_coverage is None:
             return True
 
         start = temporal_coverage.get("start")
         end = temporal_coverage.get("end")
-
         if start is None:
             return end is None
-
         if end is None:
             return False
 
         return end > start
 
-    def to_model(self):
-        raise NotImplementedError()
+    def get_harvest_info(self, keys: list[str]) -> dict:
+        harvest = self.payload.get("harvest") or {}
+        return {f"harvest__{key}": val for key, val in harvest.items() if f"harvest__{key}" in keys}
 
-    def to_row(self) -> dict:
-        model = self.to_model()
-        indicators = self.get_indicators()
-        computed_columns = {
+    def get_license_title(self) -> str | None:
+        license_id = self.payload.get("license")
+        return next((item["title"] for item in self.licenses if item["id"] == license_id), None)
+
+    def get_computed_columns(self):
+        return {
             "prefix_harvest_remote_id": self.get_prefix_or_fallback_from("remote_id"),
             "prefix_harvest_remote_url": self.get_prefix_or_fallback_from("remote_url"),
             "url_data_gouv": self.get_url_data_gouv(),
             "consistent_dates": self.get_consistent_dates(),
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
+            "license__title": self.get_license_title(),
         }
 
-        harvest = {f"harvest__{key}": val for key, val in model["harvest"].items()}
-        del model["harvest"]
 
-        return {**model, **indicators, **computed_columns, **harvest}
+class Dataset(Base):
+    __tablename__ = "catalog"
 
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dataset_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    organization: Mapped[Optional[str]] = mapped_column(ForeignKey("organizations.organization_id"))
+    owner: Mapped[Optional[str]]
+    nb_resources: Mapped[int]
+    extras: Mapped[dict] = mapped_column(JSONB)
+    last_modified: Mapped[datetime]
+    created_at: Mapped[datetime]
+    private: Mapped[bool]
+    acronym: Mapped[Optional[str]]
+    slug: Mapped[str]
+    spatial: Mapped[Optional[dict]] = mapped_column(JSONB)
+    contact_point: Mapped[Optional[dict]] = mapped_column(JSONB)
+    deleted: Mapped[bool]
+    description: Mapped[str]
+    frequency: Mapped[str]
+    temporal_coverage: Mapped[Optional[dict]] = mapped_column(JSONB)
+    license: Mapped[str]
+    license__title: Mapped[Optional[str]]
+    quality: Mapped[dict] = mapped_column(JSONB)
+    internal: Mapped[dict] = mapped_column(JSONB)
 
-class Rel(TypedDict):
-    href: str
+    # harvest info columns
+    harvest__backend: Mapped[Optional[str]]
+    harvest__created_at: Mapped[Optional[datetime]]
+    harvest__dct_identifier: Mapped[Optional[str]]
+    harvest__domain: Mapped[Optional[str]]
+    harvest__last_update: Mapped[Optional[datetime]]
+    harvest__modified_at: Mapped[Optional[datetime]]
+    harvest__remote_id: Mapped[Optional[str]]
+    harvest__remote_url: Mapped[Optional[str]]
+    harvest__source_id: Mapped[Optional[str]]
+    harvest__uri: Mapped[Optional[str]]
 
+    # indicators columns
+    has_license: Mapped[bool]
+    has_harvest__created_at: Mapped[bool]
+    has_harvest__modified_at: Mapped[bool]
+    has_harvest__remote_id: Mapped[bool]
+    has_harvest__remote_url: Mapped[bool]
+    has_resources__total: Mapped[bool]
+    has_spatial__zones: Mapped[bool]
+    has_spatial__geom: Mapped[bool]
+    has_temporal_coverage: Mapped[bool]
+    has_frequency: Mapped[bool]
+    has_contact_point: Mapped[bool]
 
-class HarvestInfo(TypedDict, total=False):
-    # All harvest elements are optional in the udata model => total=False
-    backend: str
-    created_at: datetime
-    dct_identifier: str
-    domain: str
-    last_update: datetime
-    modified_at: datetime
-    remote_id: str
-    remote_url: str
-    source_id: str
-    uri: str
+    # other computed columns
+    prefix_harvest_remote_id: Mapped[str]
+    prefix_harvest_remote_url: Mapped[str]
+    url_data_gouv: Mapped[str]
+    consistent_dates: Mapped[bool]
+    consistent_temporal_coverage: Mapped[bool]
 
-
-class DatasetRow(TypedDict):
-    dataset_id: str
-    title: str
-    organization: str | None
-    owner: str | None
-    nb_resources: int
-    extras: dict
-    harvest: HarvestInfo
-    last_modified: datetime
-    created_at: datetime
-    private: bool
-    acronym: str
-    slug: str
-    spatial: dict
-    contact_point: dict
-    deleted: bool
-    description: str
-    # FIXME: make metabase schema sync crash
-    # ERROR: duplicate key value violates unique constraint "idx_uniq_field_table_id_parent_id_name_2col",  Detail: Key (table_id, name)=(9, tags) already exists.  # noqa
-    # tags: list
-    frequency: str
-    temporal_coverage: dict
-    license: str
-    license__title: str | None
-    quality: dict
-    internal: dict
-
-
-class Dataset(BaseModel):
-    TYPE_MAP: dict[Type, Callable] = defaultdict(
-        # Callable (value) must be a constructor for corresponding Type (key)
-        # This can't be enforced with type hints, so use tests!
-        lambda: lambda v: v,  # default constructor is the type's own constructor
-        {datetime: datetime.fromisoformat},
+    # relationships
+    resources: Mapped[List["Resource"]] = relationship("Resource", back_populates="dataset")
+    bouquets: Mapped[list["Bouquet"]] = relationship(
+        "Bouquet", secondary="datasets_bouquets", back_populates="datasets"
+    )
+    # Add the relationship with a different name, so as not to clash with the existing foreign key
+    organization_rel: Mapped[Optional["Organization"]] = relationship(
+        "Organization", foreign_keys=[organization], back_populates="datasets"
     )
 
-    def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
-        super().__init__(payload, prefix)
-        self.licenses = licenses
+    def __repr__(self):
+        return f"<Dataset {self.dataset_id}>"
 
-    indicators = [
-        {"field": "license", "exclude": DEFAULT_STRING_EXCLUDE + ("notspecified",)},
-        {"field": "harvest__created_at", "exclude": DEFAULT_EXCLUDE},
-        {"field": "harvest__modified_at", "exclude": DEFAULT_EXCLUDE},
-        {"field": "harvest__remote_id", "exclude": DEFAULT_STRING_EXCLUDE},
-        {"field": "harvest__remote_url", "exclude": DEFAULT_STRING_EXCLUDE},
-        {"field": "resources__total", "exclude": (0,)},
-        {"field": "spatial__zones", "exclude": DEFAULT_LIST_EXCLUDE},
-        {"field": "spatial__geom", "exclude": DEFAULT_LIST_EXCLUDE},
-        {"field": "temporal_coverage", "exclude": DEFAULT_EXCLUDE},
-        {"field": "frequency", "exclude": DEFAULT_STRING_EXCLUDE + ("unknown",)},
-        {"field": "contact_point", "exclude": DEFAULT_EXCLUDE},
-    ]
+    @classmethod
+    def from_payload(cls, payload: dict, prefix: str, licenses: list) -> "Dataset":
+        """Build a Dataset instance from an API payload"""
+        data = payload.copy()
+        data["deleted"] = False
 
-    def get_harvest_info(self, harvest: dict | None) -> HarvestInfo:
-        info = HarvestInfo()
-        if harvest:
-            # No type hints at runtime, we rely on TYPE_MAP being correct
-            for k, v in harvest.items():
-                t = HarvestInfo.__annotations__.get(str(k))
-                if t:
-                    info[k] = Dataset.TYPE_MAP[t](v)
+        # some attributes need explicit mapping, for safety or casting,
+        # the others will be taken as is from payload if they're defined on class
+        data["dataset_id"] = data.pop("id")
+        data["nb_resources"] = data["resources"]["total"]
+        data["organization"] = data["organization"]["id"] if data["organization"] else None
+        data["owner"] = data["owner"]["id"] if data["owner"] else None
 
-        return info
+        computer = DatasetComputedColumns(data, prefix, licenses)
 
-    def get_license_title(self, id: str | None) -> str | None:
-        return next((item["title"] for item in self.licenses if item["id"] == id), None)
-
-    def to_model(self) -> DatasetRow:
-        return DatasetRow(
-            dataset_id=self.payload["id"],
-            title=self.payload["title"],
-            extras=self.payload["extras"] or {},
-            harvest=self.get_harvest_info(self.payload["harvest"]),
-            last_modified=datetime.fromisoformat(self.payload["last_modified"]),
-            created_at=datetime.fromisoformat(self.payload["created_at"]),
-            slug=self.payload["slug"],
-            acronym=self.payload["acronym"],
-            private=self.payload["private"],
-            spatial=self.payload["spatial"] or {},
-            contact_point=self.payload["contact_point"] or {},
-            organization=self.payload["organization"]["id"]
-            if self.payload["organization"]
-            else None,
-            owner=self.payload["owner"]["id"] if self.payload["owner"] else None,
-            nb_resources=self.payload["resources"]["total"],
-            description=self.payload["description"],
-            frequency=self.payload["frequency"],
-            # tags=self.payload["tags"] or [],
-            temporal_coverage=self.payload["temporal_coverage"] or {},
-            license=self.payload["license"],
-            license__title=self.get_license_title(self.payload["license"]),
-            quality=self.payload["quality"] or {},
-            internal=self.payload["internal"] or {},
-            deleted=False,
+        computed_columns = computer.get_computed_columns()
+        indicators = computer.get_indicators()
+        harvest_info = computer.get_harvest_info(
+            [k for k in cls.__dict__.keys() if k.startswith("harvest__")]
         )
 
-    @classmethod
-    def from_record(cls, record: OrderedDict) -> DatasetRow:
-        return DatasetRow(**{k: v for k, v in record.items() if k != "id"})
+        # conflicts with relationship, needs to be removed after indicators are computed
+        data.pop("resources")
 
-    @classmethod
-    def col_types(cls):
+        return cls(
+            **{
+                **{k: v for k, v in data.items() if hasattr(cls, k)},
+                **computed_columns,
+                **indicators,
+                **harvest_info,
+            }
+        )
+
+
+class ResourceComputedColumns:
+    def __init__(self, payload: dict):
+        self.payload = payload
+
+    def get_indicators(self) -> dict:
         return {
-            # "tags": JSONB,
+            "title__exists": exists(self.payload["title"], exclude=DEFAULT_STRING_EXCLUDE),
+            "description__exists": exists(
+                self.payload["description"], exclude=DEFAULT_STRING_EXCLUDE
+            ),
+            "type__exists": exists(self.payload["type"], exclude=DEFAULT_STRING_EXCLUDE),
+            "format__exists": exists(self.payload["format"], exclude=DEFAULT_STRING_EXCLUDE),
         }
 
 
-class ResourceRow(TypedDict):
-    dataset_id: str
-    resource_id: str
-    title: str
-    title__exists: bool
-    description: str
-    description__exists: bool
-    type: str
-    type__exists: bool
-    format: str | None
-    format__exists: bool
-    url: str
-    latest: str
-    checksum: dict
-    filesize: int | None
-    mime: str | None
-    created_at: datetime
-    last_modified: datetime
-    harvest: dict
-    internal: dict
-    schema: dict
+class Resource(Base):
+    __tablename__ = "resources"
 
+    id: Mapped[int] = mapped_column(primary_key=True)
+    resource_id: Mapped[str]
+    title: Mapped[Optional[str]]
+    description: Mapped[Optional[str]]
+    type: Mapped[Optional[str]]
+    format: Mapped[Optional[str]]
+    url: Mapped[str]
+    latest: Mapped[str]
+    checksum: Mapped[Optional[dict]] = mapped_column(JSONB)
+    filesize: Mapped[Optional[str]]
+    mime: Mapped[Optional[str]]
+    created_at: Mapped[datetime]
+    last_modified: Mapped[datetime]
+    harvest: Mapped[Optional[dict]] = mapped_column(JSONB)
+    internal: Mapped[dict] = mapped_column(JSONB)
+    schema: Mapped[Optional[dict]] = mapped_column(JSONB)
 
-class Resource:
+    # indicators columns
+    title__exists: Mapped[bool]
+    description__exists: Mapped[Optional[bool]]
+    type__exists: Mapped[Optional[bool]]
+    format__exists: Mapped[Optional[bool]]
+
+    # relationships
+    dataset_id: Mapped[str] = mapped_column(ForeignKey("catalog.dataset_id"))
+    dataset: Mapped["Dataset"] = relationship("Dataset", back_populates="resources")
+
+    def __repr__(self):
+        return f"<Resource {self.resource_id} of {self.dataset!r}>"
+
     @classmethod
-    def from_payload(cls, dataset_id: str, payload: dict) -> ResourceRow | None:
-        return ResourceRow(
-            dataset_id=dataset_id,
-            resource_id=payload["id"],
-            title=payload["title"],
-            title__exists=exists(payload["title"], exclude=DEFAULT_STRING_EXCLUDE),
-            description=payload["description"],
-            description__exists=exists(payload["description"], exclude=DEFAULT_STRING_EXCLUDE),
-            type=payload["type"],
-            type__exists=exists(payload["type"], exclude=DEFAULT_STRING_EXCLUDE),
-            format=payload["format"],
-            format__exists=exists(payload["format"], exclude=DEFAULT_STRING_EXCLUDE),
-            url=payload["url"],
-            latest=payload["latest"],
-            checksum=payload["checksum"] or {},
-            filesize=payload["filesize"],
-            mime=payload["mime"],
-            last_modified=datetime.fromisoformat(payload["last_modified"]),
-            created_at=datetime.fromisoformat(payload["created_at"]),
-            harvest=payload["harvest"] or {},
-            internal=payload["internal"] or {},
-            schema=payload["schema"] or {},
-        )
+    def from_payload(cls, payload: dict, dataset_id: str) -> "Resource":
+        data = payload.copy()
+        data["resource_id"] = data.pop("id")
 
+        computer = ResourceComputedColumns(data)
 
-class OrganizationRow(TypedDict):
-    organization_id: str
-    name: str
-    acronym: str
-    service_public: bool
-
-
-class Organization:
-    @classmethod
-    def from_payload(cls, payload: dict) -> OrganizationRow:
-        return OrganizationRow(
-            organization_id=payload["id"],
-            name=payload["name"],
-            acronym=payload["acronym"],
-            service_public=all(k in payload["badges"] for k in ["public-service", "certified"]),
-        )
-
-
-class DatasetBouquetRow(DatasetRow):
-    bouquet_id: str
-    bouquet_name: str
-
-
-class DatasetBouquet:
-    @classmethod
-    def from_payload(cls, payload: dict, catalog: Table) -> List[DatasetBouquetRow]:
-        """
-        Serialize a list of datasets existing in catalog from a bouquet payload
-        """
-        datasets_ids = [
-            dataset["id"]
-            for dataset in payload["extras"]["ecospheres"]["datasets_properties"]
-            if dataset.get("id")
-        ]
-        datasets = [
-            result
-            for result in (catalog.find_one(dataset_id=did) for did in datasets_ids)
-            if result is not None
-        ]
-
-        return [
-            {
-                "bouquet_id": payload["id"],
-                "bouquet_name": payload["name"],
-                **Dataset.from_record(dataset),
+        return cls(
+            **{
+                **{k: v for k, v in data.items() if hasattr(cls, k)},
+                **computer.get_indicators(),
+                "dataset_id": dataset_id,
             }
-            for dataset in datasets
-        ]
-
-
-class BouquetRow(TypedDict):
-    bouquet_id: str
-    name: str
-    private: bool
-    organization: str | None
-    owner: str | None
-    extras: dict
-    last_modified: datetime
-    created_at: datetime
-    nb_datasets: int
-    nb_factors: int
-    deleted: bool
-
-
-class Bouquet:
-    @classmethod
-    def from_payload(cls, payload: dict) -> BouquetRow:
-        datasets_properties = payload["extras"]["ecospheres"]["datasets_properties"]
-        return BouquetRow(
-            bouquet_id=payload["id"],
-            name=payload["name"],
-            private=payload["private"],
-            last_modified=datetime.fromisoformat(payload["last_modified"]),
-            created_at=datetime.fromisoformat(payload["created_at"]),
-            organization=payload["organization"]["id"] if payload["organization"] else None,
-            owner=payload["owner"]["id"] if payload["owner"] else None,
-            extras=payload["extras"] or {},
-            nb_datasets=len([d for d in datasets_properties if d.get("id")]),
-            nb_factors=len(datasets_properties),
-            deleted=False,
         )
+
+
+class Organization(Base):
+    __tablename__ = "organizations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    organization_id: Mapped[str] = mapped_column(unique=True)
+    name: Mapped[str]
+    acronym: Mapped[Optional[str]]
+    service_public: Mapped[bool]
+
+    # relationships
+    datasets: Mapped[List["Dataset"]] = relationship(
+        "Dataset", foreign_keys="Dataset.organization", back_populates="organization_rel"
+    )
+
+    def __repr__(self):
+        return f"<Organization {self.organization_id}>"
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "Organization":
+        data = payload.copy()
+        data["organization_id"] = data.pop("id")
+
+        return cls(
+            **{
+                **{k: v for k, v in data.items() if hasattr(cls, k)},
+                "service_public": all(
+                    k in [b["kind"] for b in data.get("badges", [])]
+                    for k in ["public-service", "certified"]
+                ),
+            }
+        )
+
+
+class Bouquet(Base):
+    __tablename__ = "bouquets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    bouquet_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    name: Mapped[str]
+    private: Mapped[bool]
+    # no foreign key on organization because it's not always in the db
+    organization: Mapped[Optional[str]]
+    owner: Mapped[Optional[str]]
+    extras: Mapped[dict] = mapped_column(JSONB)
+    last_modified: Mapped[datetime]
+    created_at: Mapped[datetime]
+    nb_datasets: Mapped[int]
+    nb_factors: Mapped[int]
+    deleted: Mapped[bool]
+
+    # relationships
+    datasets: Mapped[list["Dataset"]] = relationship(
+        "Dataset", secondary="datasets_bouquets", back_populates="bouquets"
+    )
+
+    def __repr__(self):
+        return f"<Bouquet {self.bouquet_id}>"
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "Bouquet":
+        data = payload.copy()
+        data["deleted"] = False
+
+        data.pop("datasets")
+        data["bouquet_id"] = data.pop("id")
+        data["organization"] = data["organization"]["id"] if data["organization"] else None
+        data["owner"] = data["owner"]["id"] if data["owner"] else None
+
+        datasets_properties = data["extras"]["ecospheres"]["datasets_properties"]
+        data["nb_datasets"] = len([d for d in datasets_properties if d.get("id")])
+        data["nb_factors"] = len(datasets_properties)
+
+        return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
+
+
+class DatasetBouquet(Base):
+    __tablename__ = "datasets_bouquets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    bouquet_id: Mapped[str] = mapped_column(String, ForeignKey("bouquets.bouquet_id"))
+    dataset_id: Mapped[str] = mapped_column(String, ForeignKey("catalog.dataset_id"))
+
+    def __repr__(self):
+        return f"<DatasetBouquet of <Bouquet {self.bouquet_id}> and <Dataset {self.dataset_id}>>"
+
+
+class Metric(Base):
+    __tablename__ = "metrics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    date: Mapped[date]
+    measurement: Mapped[str]
+    value: Mapped[float]
+    organization: Mapped[Optional[str]]
+
+    def __repr__(self) -> str:
+        return f"<Metric {self.measurement}{' of ' + self.organization if self.organization else ''} at {self.date}>"

@@ -1,4 +1,5 @@
-from db import query
+from sqlalchemy import text
+from sqlalchemy.orm import scoped_session
 
 
 def quality_score_query(organization: str | None = None) -> tuple[str, dict]:
@@ -10,7 +11,6 @@ def quality_score_query(organization: str | None = None) -> tuple[str, dict]:
     return q, kwargs
 
 
-def compute_quality_score(env: str, organization: str | None = None) -> float | None:
+def compute_quality_score(session: scoped_session, organization: str | None = None) -> float | None:
     q, kwargs = quality_score_query(organization)
-    avg_quality__score = next(query(env, q, **kwargs))
-    return avg_quality__score["mean_score"] if avg_quality__score else None
+    return session.execute(text(q), kwargs).scalar()
