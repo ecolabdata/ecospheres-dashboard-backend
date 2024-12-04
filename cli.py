@@ -1,8 +1,10 @@
 import os
 import sys
+import traceback
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date
+from typing import NamedTuple
 
 import requests
 from minicli import cli, run, wrap
@@ -24,6 +26,11 @@ from models import (
     Resource,
 )
 from utils import iter_rel, upsert
+
+
+class Task(NamedTuple):
+    future: Future
+    dataset: dict
 
 
 class App:
@@ -89,7 +96,7 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
 def process_dataset(env: str, d: dict, licenses: list, skip_related: bool) -> None:
     """Process a single dataset and its resources"""
     prefix = get_config_value(env, "prefix")
-    if organization_id := d.get("organization", {}).get("id"):
+    if organization_id := (d.get("organization") or {}).get("id"):
         load_organization(env, organization_id)
 
     dataset_obj = Dataset.from_payload(d, prefix, licenses)
@@ -140,7 +147,8 @@ def load(
 
     # Create a thread pool for parallel processing
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = []
+        tasks = []
+
         for dataset in iter_rel(topic["datasets"]):
             future = executor.submit(
                 process_dataset,
@@ -149,12 +157,14 @@ def load(
                 licenses,
                 skip_related=skip_related,
             )
-            futures.append(future)
-        for future in futures:
+            tasks.append(Task(future, dataset))
+
+        for task in tasks:
             try:
-                future.result()
+                task.future.result()
             except Exception as e:
-                print(f"Failed to process dataset: {str(e)}", file=sys.stderr)
+                print(f"Failed to process dataset {task.dataset['id']}: {str(e)}", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
 
     if not skip_related:
         load_bouquets(env=env, include_private=True)
