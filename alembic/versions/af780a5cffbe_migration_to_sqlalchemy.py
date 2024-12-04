@@ -205,8 +205,6 @@ def upgrade() -> None:
     )
     op.drop_index("ix_catalog_36c1c67adb3d1dd6", table_name="catalog")
     op.create_unique_constraint(None, "catalog", ["dataset_id"])
-    op.drop_column("catalog", "harvest__ckan_name")
-    op.drop_column("catalog", "harvest__ckan_source")
     op.alter_column(
         "datasets_bouquets",
         "bouquet_id",
@@ -241,11 +239,9 @@ def upgrade() -> None:
     op.drop_column("datasets_bouquets", "created_at")
     op.drop_column("datasets_bouquets", "bouquet_name")
     op.drop_column("datasets_bouquets", "harvest__backend")
-    op.drop_column("datasets_bouquets", "harvest__ckan_name")
     op.drop_column("datasets_bouquets", "has_spatial__zones")
     op.drop_column("datasets_bouquets", "last_modified")
     op.drop_column("datasets_bouquets", "acronym")
-    op.drop_column("datasets_bouquets", "harvest__ckan_source")
     op.drop_column("datasets_bouquets", "has_frequency")
     op.drop_column("datasets_bouquets", "contact_point")
     op.drop_column("datasets_bouquets", "license__title")
