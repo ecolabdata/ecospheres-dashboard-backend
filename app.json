@@ -2,11 +2,11 @@
   "cron": [
     {
       "command": "python cli.py load --env demo",
-      "schedule": "42 4 * * *"
+      "schedule": "2 6 * * *"
     },
     {
       "command": "python cli.py load --env prod",
-      "schedule": "42 3 * * *"
+      "schedule": "32 6 * * *"
     }
   ],
   "healthchecks": {

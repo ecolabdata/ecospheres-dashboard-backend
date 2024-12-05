@@ -7,6 +7,7 @@ from datetime import date
 from typing import NamedTuple
 
 import requests
+import sentry_sdk
 from minicli import cli, run, wrap
 from sqlalchemy import create_engine, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -26,6 +27,9 @@ from models import (
     Resource,
 )
 from utils import iter_rel, upsert
+
+if sentry_dsn := os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(dsn=sentry_dsn)
 
 
 class Task(NamedTuple):
