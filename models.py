@@ -1,6 +1,7 @@
 import re
+from dataclasses import dataclass
 from datetime import date, datetime
-from typing import List, Optional, TypedDict
+from typing import List, Optional
 
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -297,13 +298,23 @@ class Resource(Base):
         )
 
 
-class CustomOrganization(TypedDict):
+@dataclass
+class CustomOrganization:
     """An Organization from custom organizations API"""
 
     id: str
     name: str
     slug: str
     type: str
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "CustomOrganization":
+        return cls(
+            id=payload["id"],
+            name=payload["name"],
+            slug=payload["slug"],
+            type=payload["type"],
+        )
 
 
 class Organization(Base):

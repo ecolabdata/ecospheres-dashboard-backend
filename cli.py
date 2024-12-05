@@ -49,16 +49,16 @@ app = App()
 def load_organizations_custom(env: str) -> list[CustomOrganization]:
     r = requests.get(get_config_value(env, "org_api"))
     r.raise_for_status()
-    return r.json()
+    return [CustomOrganization.from_payload(o) for o in r.json()]
 
 
-def load_organization(env: str, organization_id: str) -> Organization | None:
+def load_organization(env: str, organization_id: str, refresh: bool = False) -> Organization | None:
     prefix = get_config_value(env, "prefix")
     url = f"https://{prefix}.data.gouv.fr/api/1/organizations/{organization_id}/"
     organization = (
         app.session.query(Organization).filter_by(organization_id=organization_id).first()
     )
-    if not organization:
+    if not organization or refresh:
         r = requests.get(url)
         if not r.ok:
             if r.status_code == 410:
@@ -79,14 +79,14 @@ def update_organizations(env: str = "demo"):
     organizations = app.session.query(Organization).all()
     custom_organizations = load_organizations_custom(env)
     for organization in organizations:
-        fresh_organization = load_organization(env, organization.organization_id)
+        fresh_organization = load_organization(env, organization.organization_id, refresh=True)
         if not fresh_organization:
             continue
         custom_organization = next(
-            (o for o in custom_organizations if o["id"] == fresh_organization.organization_id), None
+            (o for o in custom_organizations if o.id == fresh_organization.organization_id), None
         )
         if custom_organization:
-            fresh_organization.type = custom_organization["type"]
+            fresh_organization.type = custom_organization.type
             app.session.add(fresh_organization)
         else:
             print("Skipping organization", fresh_organization.organization_id)
