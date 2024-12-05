@@ -18,6 +18,7 @@ from metrics import compute_quality_score
 from models import (
     Base,
     Bouquet,
+    CustomOrganization,
     Dataset,
     DatasetBouquet,
     DatasetComputedColumns,
@@ -40,14 +41,19 @@ class App:
 app = App()
 
 
-# TODO: add a cli command to refresh organizations info from API
-def load_organization(env: str, organization_id: str) -> Organization | None:
+def load_custom_organizations(env: str) -> list[CustomOrganization]:
+    r = requests.get(get_config_value(env, "org_api"))
+    r.raise_for_status()
+    return [CustomOrganization.from_payload(o) for o in r.json()]
+
+
+def load_organization(env: str, organization_id: str, refresh: bool = False) -> Organization | None:
     prefix = get_config_value(env, "prefix")
     url = f"https://{prefix}.data.gouv.fr/api/1/organizations/{organization_id}/"
     organization = (
         app.session.query(Organization).filter_by(organization_id=organization_id).first()
     )
-    if not organization:
+    if not organization or refresh:
         r = requests.get(url)
         if not r.ok:
             if r.status_code == 410:
@@ -59,6 +65,27 @@ def load_organization(env: str, organization_id: str) -> Organization | None:
         org_db = Organization.from_payload(r.json())
         organization = upsert(app.session, org_db, organization)
     return organization
+
+
+@cli
+def update_organizations(env: str = "demo"):
+    """Refresh and complement organizations"""
+    print("Updating organizations...")
+    organizations = app.session.query(Organization).all()
+    custom_organizations = load_custom_organizations(env)
+    for organization in organizations:
+        fresh_organization = load_organization(env, organization.organization_id, refresh=True)
+        if not fresh_organization:
+            continue
+        custom_organization = next(
+            (o for o in custom_organizations if o.id == fresh_organization.organization_id), None
+        )
+        if custom_organization:
+            fresh_organization.type = custom_organization.type
+            app.session.add(fresh_organization)
+        else:
+            print("Skipping organization", fresh_organization.organization_id)
+    app.session.commit()
 
 
 @cli
@@ -123,6 +150,7 @@ def load(
     - organizations
     - resources (related)
     - bouquets (related)
+    - organizations (related)
 
     And compute associated metrics.
     """
@@ -167,6 +195,7 @@ def load(
                 traceback.print_exc(file=sys.stderr)
 
     if not skip_related:
+        update_organizations(env=env)
         load_bouquets(env=env, include_private=True)
 
     if not skip_metrics:
