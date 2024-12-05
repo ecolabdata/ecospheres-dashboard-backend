@@ -1,6 +1,6 @@
 import re
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -297,6 +297,15 @@ class Resource(Base):
         )
 
 
+class CustomOrganization(TypedDict):
+    """An Organization from custom organizations API"""
+
+    id: str
+    name: str
+    slug: str
+    type: str
+
+
 class Organization(Base):
     __tablename__ = "organizations"
 
@@ -305,6 +314,7 @@ class Organization(Base):
     name: Mapped[str]
     acronym: Mapped[Optional[str]]
     service_public: Mapped[bool]
+    type: Mapped[Optional[str]]
 
     # relationships
     datasets: Mapped[List["Dataset"]] = relationship(
