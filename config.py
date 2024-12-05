@@ -7,6 +7,7 @@ class ConfigDict(TypedDict):
     topic_slug: str
     prefix: str
     dsn: str
+    org_api: str
     stats_url: str | None
     stats_site_id: str | None
     stats_token: str | None
@@ -21,6 +22,8 @@ ENVS_CONF: dict[Literal["prod", "demo"], ConfigDict] = {
         "stats_url": "https://stats.data.gouv.fr/index.php",
         "stats_site_id": "299",
         "stats_token": os.getenv("STATS_TOKEN", ""),
+        # FIXME: move to main branch when available
+        "org_api": "https://raw.githubusercontent.com/ecolabdata/ecospheres-universe/refs/heads/feat/org-api/dist/organizations-prod.json",
     },
     "demo": {
         "universe_name": "ecospheres",
@@ -30,6 +33,8 @@ ENVS_CONF: dict[Literal["prod", "demo"], ConfigDict] = {
         "stats_url": None,
         "stats_site_id": None,
         "stats_token": None,
+        # FIXME: move to main branch when available
+        "org_api": "https://raw.githubusercontent.com/ecolabdata/ecospheres-universe/refs/heads/feat/org-api/dist/organizations-demo.json",
     },
 }
 
