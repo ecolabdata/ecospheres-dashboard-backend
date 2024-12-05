@@ -239,6 +239,7 @@ def compute_metrics(env: str = "demo"):
     bouquets = app.session.query(Bouquet)
     add_metric("nb_bouquets", bouquets.filter_by(deleted=False).count())
     add_metric("nb_bouquets_public", bouquets.filter_by(deleted=False, private=False).count())
+    # nb_datasets_in_bouquets
     add_metric(
         "nb_datasets_in_bouquets",
         sum(b.nb_datasets for b in bouquets.filter_by(deleted=False)),
@@ -247,6 +248,7 @@ def compute_metrics(env: str = "demo"):
         "nb_datasets_in_bouquets_public",
         sum(b.nb_datasets for b in bouquets.filter_by(deleted=False, private=False)),
     )
+    # nb_factors_in_bouquets
     add_metric(
         "nb_factors_in_bouquets",
         sum(b.nb_factors for b in bouquets.filter_by(deleted=False)),
@@ -254,6 +256,24 @@ def compute_metrics(env: str = "demo"):
     add_metric(
         "nb_factors_in_bouquets_public",
         sum(b.nb_factors for b in bouquets.filter_by(deleted=False, private=False)),
+    )
+    # nb_factors_missing_in_bouquets
+    add_metric(
+        "nb_factors_missing_in_bouquets",
+        sum(b.nb_factors_missing for b in bouquets.filter_by(deleted=False)),
+    )
+    add_metric(
+        "nb_factors_missing_in_bouquets_public",
+        sum(b.nb_factors_missing for b in bouquets.filter_by(deleted=False, private=False)),
+    )
+    # nb_factors_not_available_in_bouquets
+    add_metric(
+        "nb_factors_not_available_in_bouquets",
+        sum(b.nb_factors_not_available for b in bouquets.filter_by(deleted=False)),
+    )
+    add_metric(
+        "nb_factors_not_available_in_bouquets_public",
+        sum(b.nb_factors_not_available for b in bouquets.filter_by(deleted=False, private=False)),
     )
 
 

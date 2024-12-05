@@ -345,6 +345,8 @@ class Bouquet(Base):
     created_at: Mapped[datetime]
     nb_datasets: Mapped[int]
     nb_factors: Mapped[int]
+    nb_factors_missing: Mapped[int]
+    nb_factors_not_available: Mapped[int]
     deleted: Mapped[bool]
 
     # relationships
@@ -368,6 +370,12 @@ class Bouquet(Base):
         datasets_properties = data["extras"]["ecospheres"]["datasets_properties"]
         data["nb_datasets"] = len([d for d in datasets_properties if d.get("id")])
         data["nb_factors"] = len(datasets_properties)
+        data["nb_factors_missing"] = len(
+            [d for d in datasets_properties if d.get("availability") == "missing"]
+        )
+        data["nb_factors_not_available"] = len(
+            [d for d in datasets_properties if d.get("availability") == "not available"]
+        )
 
         return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
 
