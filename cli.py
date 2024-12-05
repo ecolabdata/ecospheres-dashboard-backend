@@ -248,6 +248,15 @@ def compute_metrics(env: str = "demo"):
         "nb_datasets_in_bouquets_public",
         sum(b.nb_datasets for b in bouquets.filter_by(deleted=False, private=False)),
     )
+    # nb_datasets_external_in_bouquets
+    add_metric(
+        "nb_datasets_external_in_bouquets",
+        sum(b.nb_datasets_external for b in bouquets.filter_by(deleted=False)),
+    )
+    add_metric(
+        "nb_datasets_external_in_bouquets_public",
+        sum(b.nb_datasets_external for b in bouquets.filter_by(deleted=False, private=False)),
+    )
     # nb_factors_in_bouquets
     add_metric(
         "nb_factors_in_bouquets",

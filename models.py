@@ -344,6 +344,7 @@ class Bouquet(Base):
     last_modified: Mapped[datetime]
     created_at: Mapped[datetime]
     nb_datasets: Mapped[int]
+    nb_datasets_external: Mapped[int]
     nb_factors: Mapped[int]
     nb_factors_missing: Mapped[int]
     nb_factors_not_available: Mapped[int]
@@ -369,6 +370,9 @@ class Bouquet(Base):
 
         datasets_properties = data["extras"]["ecospheres"]["datasets_properties"]
         data["nb_datasets"] = len([d for d in datasets_properties if d.get("id")])
+        data["nb_datasets_external"] = len(
+            [d for d in datasets_properties if d.get("uri") and not d.get("id")]
+        )
         data["nb_factors"] = len(datasets_properties)
         data["nb_factors_missing"] = len(
             [d for d in datasets_properties if d.get("availability") == "missing"]
