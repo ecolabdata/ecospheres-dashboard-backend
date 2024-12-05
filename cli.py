@@ -46,7 +46,7 @@ class App:
 app = App()
 
 
-def load_organizations_custom(env: str) -> list[CustomOrganization]:
+def load_custom_organizations(env: str) -> list[CustomOrganization]:
     r = requests.get(get_config_value(env, "org_api"))
     r.raise_for_status()
     return [CustomOrganization.from_payload(o) for o in r.json()]
@@ -77,7 +77,7 @@ def update_organizations(env: str = "demo"):
     """Refresh and complement organizations"""
     print("Updating organizations...")
     organizations = app.session.query(Organization).all()
-    custom_organizations = load_organizations_custom(env)
+    custom_organizations = load_custom_organizations(env)
     for organization in organizations:
         fresh_organization = load_organization(env, organization.organization_id, refresh=True)
         if not fresh_organization:
