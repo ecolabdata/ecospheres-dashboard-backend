@@ -196,7 +196,7 @@ def compute_metrics(env: str = "demo"):
         )
         upsert(app.session, metric_obj, existing)
 
-    query = select(Dataset.organization).distinct()
+    query = select(Dataset.organization).distinct().where(~Dataset.deleted)
     org_ids = app.session.execute(query).scalars().all()
     add_metric("nb_organizations", len(org_ids))
 
