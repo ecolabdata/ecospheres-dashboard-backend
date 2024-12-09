@@ -1,4 +1,5 @@
 import re
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import List, Optional
 
@@ -297,6 +298,25 @@ class Resource(Base):
         )
 
 
+@dataclass
+class EcospheresUniverseOrganization:
+    """Organization properties from our ecospheres-universe API"""
+
+    id: str
+    name: str
+    slug: str
+    type: str
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "EcospheresUniverseOrganization":
+        return cls(
+            id=payload["id"],
+            name=payload["name"],
+            slug=payload["slug"],
+            type=payload["type"],
+        )
+
+
 class Organization(Base):
     __tablename__ = "organizations"
 
@@ -305,6 +325,7 @@ class Organization(Base):
     name: Mapped[str]
     acronym: Mapped[Optional[str]]
     service_public: Mapped[bool]
+    type: Mapped[Optional[str]]
 
     # relationships
     datasets: Mapped[List["Dataset"]] = relationship(
