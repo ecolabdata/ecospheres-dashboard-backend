@@ -19,10 +19,10 @@ from metrics import compute_quality_score
 from models import (
     Base,
     Bouquet,
-    CustomOrganization,
     Dataset,
     DatasetBouquet,
     DatasetComputedColumns,
+    EcospheresUniverseOrganization,
     Metric,
     Organization,
     Resource,
@@ -46,10 +46,10 @@ class App:
 app = App()
 
 
-def load_custom_organizations(env: str) -> list[CustomOrganization]:
+def load_es_universe_organizations(env: str) -> list[EcospheresUniverseOrganization]:
     r = requests.get(get_config_value(env, "org_api"))
     r.raise_for_status()
-    return [CustomOrganization.from_payload(o) for o in r.json()]
+    return [EcospheresUniverseOrganization.from_payload(o) for o in r.json()]
 
 
 def load_organization(env: str, organization_id: str, refresh: bool = False) -> Organization | None:
@@ -77,7 +77,7 @@ def update_organizations(env: str = "demo"):
     """Refresh and complement organizations"""
     print("Updating organizations...")
     organizations = app.session.query(Organization).all()
-    custom_organizations = load_custom_organizations(env)
+    custom_organizations = load_es_universe_organizations(env)
     for organization in organizations:
         fresh_organization = load_organization(env, organization.organization_id, refresh=True)
         if not fresh_organization:
