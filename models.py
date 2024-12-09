@@ -299,8 +299,8 @@ class Resource(Base):
 
 
 @dataclass
-class CustomOrganization:
-    """An Organization from custom organizations API"""
+class EcospheresUniverseOrganization:
+    """Organization properties from our ecospheres-universe API"""
 
     id: str
     name: str
@@ -308,7 +308,7 @@ class CustomOrganization:
     type: str
 
     @classmethod
-    def from_payload(cls, payload: dict) -> "CustomOrganization":
+    def from_payload(cls, payload: dict) -> "EcospheresUniverseOrganization":
         return cls(
             id=payload["id"],
             name=payload["name"],
