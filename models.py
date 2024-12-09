@@ -394,3 +394,25 @@ class Metric(Base):
 
     def __repr__(self) -> str:
         return f"<Metric {self.measurement}{' of ' + self.organization if self.organization else ''} at {self.date}>"
+
+
+class Stats(Base):
+    __tablename__ = "stats"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    date: Mapped[date]
+    # those attributes are directly mapped to matomo
+    nb_uniq_visitors: Mapped[int]
+    nb_visits: Mapped[int]
+    nb_actions: Mapped[int]
+    nb_visits_converted: Mapped[int]
+    bounce_count: Mapped[int]
+    sum_visit_length: Mapped[int]
+    max_actions: Mapped[int]
+    bounce_rate: Mapped[float]
+    nb_actions_per_visit: Mapped[float]
+    avg_time_on_site: Mapped[int]
+    nb_pageviews: Mapped[int]
+    nb_downloads: Mapped[int]
+    nb_uniq_visitors_returning: Mapped[int]
+    nb_uniq_visitors_new: Mapped[int]

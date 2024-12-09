@@ -3,12 +3,12 @@ import sys
 import traceback
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import date
+from datetime import date, timedelta
 from typing import NamedTuple
 
 import requests
 from minicli import cli, run, wrap
-from sqlalchemy import create_engine, select, text, update
+from sqlalchemy import create_engine, inspect, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from alembic import command
@@ -24,6 +24,7 @@ from models import (
     Metric,
     Organization,
     Resource,
+    Stats,
 )
 from utils import iter_rel, upsert
 
@@ -115,6 +116,7 @@ def load(
     env: str = "demo",
     skip_related: bool = False,
     skip_metrics: bool = False,
+    skip_stats: bool = False,
     max_workers: int = 4,
 ):
     """
@@ -124,7 +126,7 @@ def load(
     - resources (related)
     - bouquets (related)
 
-    And compute associated metrics.
+    Also compute associated metrics and load stats from Matomo.
     """
     prefix = get_config_value(env, "prefix")
     topic_slug = get_config_value(env, "topic_slug")
@@ -171,6 +173,9 @@ def load(
 
     if not skip_metrics:
         compute_metrics(env=env)
+
+    if not skip_stats:
+        load_stats(env=env)
 
 
 @cli
@@ -247,6 +252,69 @@ def compute_metrics(env: str = "demo"):
         "nb_factors_in_bouquets",
         sum(b.nb_factors for b in bouquets.filter_by(deleted=False)),
     )
+
+
+@cli
+def load_stats_history(env: str = "demo", since: str = "2024-04-02"):
+    parsed_since = date.fromisoformat(since)
+    print(f"Loading stats history since {since}...")
+    today = date.today()
+    for d in range((today - parsed_since).days):
+        current_date = parsed_since + timedelta(d)
+        load_stats(env=env, day=current_date.isoformat())
+
+
+@cli
+def load_stats(env: str = "demo", day: str | None = None):
+    """
+    Upsert the stats table from Matomo
+    """
+    # defaults to yesterday
+    parsed_day = date.fromisoformat(day) if day else date.today() - timedelta(days=1)
+    print(f"Loading stats for {parsed_day.isoformat()}...")
+
+    stats_url = get_config_value(env, "stats_url")
+    stats_site_id = get_config_value(env, "stats_site_id")
+    stats_token = get_config_value(env, "stats_token")
+
+    if not stats_url or not stats_site_id or not stats_token:
+        print("Skipping stats loading: missing config value(s)")
+        return
+
+    common_args = {
+        "module": "API",
+        "idSite": stats_site_id,
+        "token_auth": stats_token,
+        "period": "day",
+        "date": parsed_day.isoformat(),
+        "format": "JSON",
+    }
+
+    def fetch(method: str) -> dict:
+        r = requests.post(
+            stats_url,
+            data={
+                **common_args,
+                "method": method,
+            },
+        )
+        r.raise_for_status()
+        return r.json()
+
+    data = {}
+    methods = ["VisitsSummary.get", "Actions.get", "VisitFrequency.get"]
+    for method in methods:
+        data |= fetch(method)
+
+    columns = [column.key for column in inspect(Stats).attrs if column.key != "id"]
+    db_data = {k: v for k, v in data.items() if k in columns}
+    db_data["date"] = parsed_day
+    if "bounce_rate" in db_data:
+        # 39% -> 0.39
+        db_data["bounce_rate"] = float(db_data["bounce_rate"].replace("%", "")) / 100
+
+    existing = app.session.query(Stats).filter_by(date=parsed_day).first()
+    upsert(app.session, Stats(**db_data), existing)
 
 
 @cli

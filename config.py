@@ -1,7 +1,9 @@
 import os
 from typing import Literal
 
-ConfigKeys = Literal["universe_name", "topic_slug", "prefix", "dsn"]
+ConfigKeys = Literal[
+    "universe_name", "topic_slug", "prefix", "dsn", "stats_url", "stats_site_id", "stats_token"
+]
 
 
 ENVS_CONF: dict[Literal["prod", "demo"], dict[ConfigKeys, str]] = {
@@ -10,12 +12,18 @@ ENVS_CONF: dict[Literal["prod", "demo"], dict[ConfigKeys, str]] = {
         "topic_slug": "univers-ecospheres",
         "prefix": "www",
         "dsn": os.getenv("DATABASE_URL_PROD", ""),
+        "stats_url": "https://stats.data.gouv.fr/index.php",
+        "stats_site_id": "299",
+        "stats_token": os.getenv("STATS_TOKEN", ""),
     },
     "demo": {
         "universe_name": "ecospheres",
         "topic_slug": "univers-ecospheres",
         "prefix": "demo",
         "dsn": os.getenv("DATABASE_URL", ""),
+        "stats_url": "",
+        "stats_site_id": "",
+        "stats_token": "",
     },
 }
 
