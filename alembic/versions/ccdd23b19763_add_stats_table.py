@@ -14,8 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "ccdd23b19763"
-# FIXME: check that https://github.com/ecolabdata/ecospheres-dashboard-backend/pull/29 has not been merged first
-down_revision: Union[str, None] = "af780a5cffbe"
+down_revision: Union[str, None] = "c9fc31256367"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
