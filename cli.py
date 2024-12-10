@@ -311,7 +311,7 @@ def load_stats(env: str = "demo", day: str | None = None):
     db_data["date"] = parsed_day
     if "bounce_rate" in db_data:
         # 39% -> 0.39
-        db_data["bounce_rate"] = float(db_data["bounce_rate"].replace("%", "")) / 100
+        db_data["bounce_rate"] = float(db_data["bounce_rate"].rstrip("%")) / 100
 
     existing = app.session.query(Stats).filter_by(date=parsed_day).first()
     upsert(app.session, Stats(**db_data), existing)
