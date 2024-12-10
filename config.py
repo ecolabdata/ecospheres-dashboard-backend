@@ -1,12 +1,18 @@
 import os
-from typing import Literal
-
-ConfigKeys = Literal[
-    "universe_name", "topic_slug", "prefix", "dsn", "stats_url", "stats_site_id", "stats_token"
-]
+from typing import Literal, TypedDict
 
 
-ENVS_CONF: dict[Literal["prod", "demo"], dict[ConfigKeys, str]] = {
+class ConfigDict(TypedDict):
+    universe_name: str
+    topic_slug: str
+    prefix: str
+    dsn: str
+    stats_url: str | None
+    stats_site_id: str | None
+    stats_token: str | None
+
+
+ENVS_CONF: dict[Literal["prod", "demo"], ConfigDict] = {
     "prod": {
         "universe_name": "univers-ecospheres",
         "topic_slug": "univers-ecospheres",
@@ -21,14 +27,16 @@ ENVS_CONF: dict[Literal["prod", "demo"], dict[ConfigKeys, str]] = {
         "topic_slug": "univers-ecospheres",
         "prefix": "demo",
         "dsn": os.getenv("DATABASE_URL", ""),
-        "stats_url": "",
-        "stats_site_id": "",
-        "stats_token": "",
+        "stats_url": None,
+        "stats_site_id": None,
+        "stats_token": None,
     },
 }
 
 
-def get_config_value(env: str, key: ConfigKeys) -> str:
+def get_config_value(env: str, key: str) -> str:
     if env not in ENVS_CONF:
         raise ValueError(f"Invalid environment '{env}'.")
+    if key not in ENVS_CONF[env]:
+        raise ValueError(f"Invalid config key '{key}' for environment '{env}'.")
     return ENVS_CONF[env][key]
