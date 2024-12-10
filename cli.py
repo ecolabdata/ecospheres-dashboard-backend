@@ -61,7 +61,7 @@ def load_organization(env: str, organization_id: str, refresh: bool = False) -> 
     if not organization or refresh:
         r = requests.get(url)
         if not r.ok:
-            if r.status_code == 410:
+            if r.status_code == 410 or r.status_code == 404:
                 # TODO: delete from db?
                 print(f"Warning: organization {organization_id} has been deleted")
                 return
