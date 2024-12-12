@@ -9,7 +9,7 @@ from typing import NamedTuple
 import requests
 import sentry_sdk
 from minicli import cli, run, wrap
-from sqlalchemy import create_engine, inspect, select, text, update
+from sqlalchemy import and_, create_engine, inspect, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from alembic import command
@@ -234,7 +234,11 @@ def compute_metrics(env: str = "demo"):
         )
         upsert(app.session, metric_obj, existing)
 
-    query = select(Dataset.organization).distinct().where(~Dataset.deleted)
+    query = (
+        select(Dataset.organization)
+        .distinct()
+        .where(and_(~Dataset.deleted, Dataset.organization.is_not(None)))
+    )
     org_ids = app.session.execute(query).scalars().all()
     add_metric("nb_organizations", len(org_ids))
 
