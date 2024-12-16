@@ -23,6 +23,7 @@ def exists(element, exclude: tuple = DEFAULT_EXCLUDE):
 
 class DatasetComputedColumns:
     MISSING_PREFIX_MESSAGE = "[préfixe absent]"
+    DESCRIPTION_MIN_LENGTH = 200
 
     indicators = [
         {"field": "license", "exclude": DEFAULT_STRING_EXCLUDE + ("notspecified",)},
@@ -119,6 +120,7 @@ class DatasetComputedColumns:
         return next((item["title"] for item in self.licenses if item["id"] == license_id), None)
 
     def get_computed_columns(self):
+        description_length = len(self.payload["description"] or "")
         return {
             "prefix_harvest_remote_id": self.get_prefix_or_fallback_from("remote_id"),
             "prefix_harvest_remote_url": self.get_prefix_or_fallback_from("remote_url"),
@@ -126,6 +128,8 @@ class DatasetComputedColumns:
             "consistent_dates": self.get_consistent_dates(),
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
             "license__title": self.get_license_title(),
+            "description__length": description_length,
+            "description__length__ok": description_length >= self.DESCRIPTION_MIN_LENGTH,
         }
 
 
@@ -186,6 +190,8 @@ class Dataset(Base):
     url_data_gouv: Mapped[str]
     consistent_dates: Mapped[bool]
     consistent_temporal_coverage: Mapped[bool]
+    description__length: Mapped[int]
+    description__length__ok: Mapped[bool]
 
     # relationships
     resources: Mapped[List["Resource"]] = relationship("Resource", back_populates="dataset")
