@@ -36,7 +36,7 @@ class DatasetComputedColumns:
         {"field": "spatial__geom", "exclude": DEFAULT_LIST_EXCLUDE},
         {"field": "temporal_coverage", "exclude": DEFAULT_JSON_EXCLUDE},
         {"field": "frequency", "exclude": DEFAULT_STRING_EXCLUDE + ("unknown",)},
-        {"field": "contact_point", "exclude": DEFAULT_JSON_EXCLUDE},
+        {"field": "contact_points", "exclude": DEFAULT_LIST_EXCLUDE},
     ]
 
     def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
@@ -149,7 +149,7 @@ class Dataset(Base):
     acronym: Mapped[Optional[str]]
     slug: Mapped[str]
     spatial: Mapped[Optional[dict]] = mapped_column(JSONB)
-    contact_point: Mapped[Optional[dict]] = mapped_column(JSONB)
+    contact_points: Mapped[List[dict]] = mapped_column(JSONB)
     deleted: Mapped[bool]
     description: Mapped[str]
     frequency: Mapped[str]
@@ -182,7 +182,7 @@ class Dataset(Base):
     has_spatial__geom: Mapped[bool]
     has_temporal_coverage: Mapped[bool]
     has_frequency: Mapped[bool]
-    has_contact_point: Mapped[bool]
+    has_contact_points: Mapped[bool]
 
     # other computed columns
     prefix_harvest_remote_id: Mapped[str]
