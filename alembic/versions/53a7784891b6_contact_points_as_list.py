@@ -25,13 +25,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     conn = op.get_bind()
 
-    op.add_column("catalog", sa.Column("contact_points", JSONB))
+    op.add_column("catalog", sa.Column("contact_points", JSONB, nullable=False))
     conn.execute(
         sa.text("""
             UPDATE catalog
             SET contact_points
                 CASE
-                    WHEN contact_point IS NULL THEN NULL
+                    WHEN contact_point IS NULL THEN json_build_array()
                     ELSE jsonb_build_array(contact_point)
                 END
         """)
@@ -45,13 +45,12 @@ def downgrade() -> None:
     conn = op.get_bind()
 
     op.add_column("catalog", sa.Column("contact_points", JSONB))
-    # WARNING: lossy
+    # WARNING: lossy, and expecting nullable=False
     conn.execute(
         sa.text("""
             UPDATE catalog
             SET contact_point =
                 CASE
-                    WHEN contact_points IS NULL THEN NULL
                     WHEN jsonb_array_length(contact_points) > 0 THEN contact_points->0
                     ELSE NULL
                 END
