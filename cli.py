@@ -183,7 +183,7 @@ def load(
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         tasks = []
 
-        for dataset in iter_rel(topic["datasets"]):
+        for dataset in iter_rel(topic["datasets"], page_size=200):
             future = executor.submit(
                 process_dataset,
                 env,

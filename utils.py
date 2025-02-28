@@ -1,4 +1,5 @@
 import math
+import re
 import time
 from typing import TypeAlias, TypedDict, TypeVar
 
@@ -30,8 +31,10 @@ class Rel(TypedDict):
     href: str
 
 
-def iter_rel(rel: Rel, quiet: bool = False):
+def iter_rel(rel: Rel, quiet: bool = False, page_size: int | None = None):
     current_url = rel["href"]
+    if page_size:
+        current_url = re.sub(r"page_size=(?:[0-9]+)", f"page_size={page_size}", current_url)
     if not quiet:
         print(f"Fetching {current_url}...")
     while current_url is not None:
