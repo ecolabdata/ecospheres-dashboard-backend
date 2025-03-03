@@ -4,6 +4,7 @@ import traceback
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date, timedelta
+from threading import Lock
 from typing import NamedTuple
 
 import requests
@@ -41,6 +42,10 @@ class Task(NamedTuple):
 
 class App:
     session: scoped_session
+    org_lock: Lock
+
+    def __init__(self):
+        self.org_lock = Lock()
 
 
 app = App()
@@ -55,21 +60,22 @@ def load_es_universe_organizations(env: str) -> list[EcospheresUniverseOrganizat
 def load_organization(env: str, organization_id: str, refresh: bool = False) -> Organization | None:
     prefix = get_config_value(env, "prefix")
     url = f"https://{prefix}.data.gouv.fr/api/1/organizations/{organization_id}/"
-    organization = (
-        app.session.query(Organization).filter_by(organization_id=organization_id).first()
-    )
-    if not organization or refresh:
-        r = requests.get(url)
-        if not r.ok:
-            if r.status_code == 410 or r.status_code == 404:
-                # TODO: delete from db?
-                print(f"Warning: organization {organization_id} has been deleted")
-                return
-            else:
-                r.raise_for_status()
-        org_db = Organization.from_payload(r.json())
-        organization = upsert(app.session, org_db, organization)
-    return organization
+    with app.org_lock:
+        organization = (
+            app.session.query(Organization).filter_by(organization_id=organization_id).first()
+        )
+        if not organization or refresh:
+            r = requests.get(url)
+            if not r.ok:
+                if r.status_code == 410 or r.status_code == 404:
+                    # TODO: delete from db?
+                    print(f"Warning: organization {organization_id} has been deleted")
+                    return
+                else:
+                    r.raise_for_status()
+            org_db = Organization.from_payload(r.json())
+            organization = upsert(app.session, org_db, organization)
+        return organization
 
 
 @cli
