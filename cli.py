@@ -16,6 +16,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from alembic import command
 from alembic.config import Config
 from config import get_config_value
+from db import upsert
 from metrics import compute_quality_score
 from models import (
     Base,
@@ -29,7 +30,7 @@ from models import (
     Resource,
     Stats,
 )
-from utils import iter_rel, upsert
+from rel import iter_rel
 
 if sentry_dsn := os.getenv("SENTRY_DSN"):
     sentry_sdk.init(dsn=sentry_dsn)
@@ -58,8 +59,8 @@ def load_es_universe_organizations(env: str) -> list[EcospheresUniverseOrganizat
 
 
 def load_organization(env: str, organization_id: str, refresh: bool = False) -> Organization | None:
-    prefix = get_config_value(env, "prefix")
-    url = f"https://{prefix}.data.gouv.fr/api/1/organizations/{organization_id}/"
+    base_url = get_config_value(env, "base_url")
+    url = f"{base_url}/api/1/organizations/{organization_id}/"
     with app.org_lock:
         organization = (
             app.session.query(Organization).filter_by(organization_id=organization_id).first()
@@ -101,7 +102,8 @@ def update_organizations(env: str = "demo"):
 
 @cli
 def load_bouquets(env: str = "demo", include_private: bool = False):
-    prefix = get_config_value(env, "prefix")
+    base_url = get_config_value(env, "base_url")
+    api_key = get_config_value(env, "api_key")
 
     app.session.execute(text("DELETE FROM datasets_bouquets"))
     app.session.commit()
@@ -112,37 +114,42 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
     app.session.commit()
 
     universe_name = get_config_value(env, "universe_name")
-    url = f"https://{prefix}.data.gouv.fr/api/2/topics/?tag={universe_name}"
+    url = f"{base_url}/api/2/topics/?tag={universe_name}"
     if include_private:
         url = f"{url}&include_private=yes"
 
     for bouquet in iter_rel(
         {
             "href": url,
-        }
+        },
+        headers={"X-API-KEY": api_key},
     ):
         existing = app.session.query(Bouquet).filter_by(bouquet_id=bouquet["id"]).first()
         bouquet_obj = Bouquet.from_payload(bouquet)
-        bouquet_obj = upsert(app.session, bouquet_obj, existing)
-        for dataset in iter_rel(bouquet["datasets"], quiet=True):
-            dataset_obj = app.session.query(Dataset).filter_by(dataset_id=dataset["id"]).first()
+        bouquet_obj_in_db = upsert(app.session, bouquet_obj, existing)
+        for elt_id in [elt["element"]["id"] for elt in bouquet_obj._elements if elt.get("element")]:
+            dataset_obj = app.session.query(Dataset).filter_by(dataset_id=elt_id).first()
             if dataset_obj:
-                bouquet_obj.datasets.append(dataset_obj)
+                bouquet_obj_in_db.datasets.append(dataset_obj)
         app.session.commit()
 
 
-def process_dataset(env: str, d: dict, licenses: list, skip_related: bool) -> None:
-    """Process a single dataset and its resources"""
-    prefix = get_config_value(env, "prefix")
-    if organization_id := (d.get("organization") or {}).get("id"):
+def process_element(env: str, element: dict, licenses: list, skip_related: bool) -> None:
+    """Process a single element (dataset) and its resources"""
+    if not element.get("element", {}).get("class") == "Dataset":
+        print(f"Skipping element {element['id']} (not a dataset).")
+        return
+    base_url = get_config_value(env, "base_url")
+    r = requests.get(f"{base_url}/api/2/datasets/{element['element']['id']}/")
+    dataset_payload = r.json()
+    if organization_id := (dataset_payload.get("organization") or {}).get("id"):
         load_organization(env, organization_id)
-
-    dataset_obj = Dataset.from_payload(d, prefix, licenses)
+    dataset_obj = Dataset.from_payload(dataset_payload, base_url, licenses)
     existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
     upsert(app.session, dataset_obj, existing)
 
     if not skip_related:
-        for r in iter_rel(d["resources"], quiet=True):
+        for r in iter_rel(dataset_payload["resources"], quiet=True):
             resource_obj = Resource.from_payload(r, dataset_obj.dataset_id)
             app.session.add(resource_obj)
         app.session.commit()
@@ -166,13 +173,13 @@ def load(
 
     Also compute associated metrics and load stats from Matomo.
     """
-    prefix = get_config_value(env, "prefix")
+    base_url = get_config_value(env, "base_url")
     topic_slug = get_config_value(env, "topic_slug")
-    request_topic = requests.get(f"https://{prefix}.data.gouv.fr/api/2/topics/{topic_slug}/")
+    request_topic = requests.get(f"{base_url}/api/2/topics/{topic_slug}/")
     request_topic.raise_for_status()
     topic = request_topic.json()
 
-    request_licenses = requests.get(f"https://{prefix}.data.gouv.fr/api/1/datasets/licenses/")
+    request_licenses = requests.get(f"{base_url}/api/1/datasets/licenses/")
     request_licenses.raise_for_status()
     licenses = request_licenses.json()
 
@@ -189,15 +196,15 @@ def load(
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         tasks = []
 
-        for dataset in iter_rel(topic["datasets"], page_size=200):
+        for element in iter_rel(topic["elements"], page_size=200):
             future = executor.submit(
-                process_dataset,
+                process_element,
                 env,
-                dataset,
+                element,
                 licenses,
                 skip_related=skip_related,
             )
-            tasks.append(Task(future, dataset))
+            tasks.append(Task(future, element))
 
         for task in tasks:
             try:
