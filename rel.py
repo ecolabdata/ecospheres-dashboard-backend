@@ -1,37 +1,16 @@
 import math
 import re
 import time
-from typing import TypeAlias, TypedDict, TypeVar
+from typing import TypedDict
 
 import requests
-from sqlalchemy.orm import scoped_session
-
-from models import Bouquet, Dataset, Metric, Organization, Resource, Stats
-
-Model: TypeAlias = Bouquet | Dataset | Metric | Organization | Resource | Stats
-T = TypeVar("T", bound=Model)
-
-
-def upsert(session: scoped_session, new: T, existing: T | None, auto_commit: bool = True) -> T:
-    if existing:
-        new.id = existing.id
-        session.merge(new)
-        result = existing
-    else:
-        session.add(new)
-        result = new
-    # creates the id if needed
-    session.flush()
-    if auto_commit:
-        session.commit()
-    return result
 
 
 class Rel(TypedDict):
     href: str
 
 
-def iter_rel(rel: Rel, quiet: bool = False, page_size: int | None = None):
+def iter_rel(rel: Rel, quiet: bool = False, page_size: int | None = None, headers: dict = {}):
     current_url = rel["href"]
     if page_size:
         current_url = re.sub(r"page_size=(?:[0-9]+)", f"page_size={page_size}", current_url)
@@ -39,7 +18,7 @@ def iter_rel(rel: Rel, quiet: bool = False, page_size: int | None = None):
         print(f"Fetching {current_url}...")
     while current_url is not None:
         while True:
-            r = requests.get(current_url)
+            r = requests.get(current_url, headers=headers)
             if not r.ok:
                 if r.status_code == 429:
                     print("429 hit, waiting a bit")
