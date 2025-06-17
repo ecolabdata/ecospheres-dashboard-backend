@@ -149,6 +149,8 @@ def process_dataset(env: str, d: dict, licenses: list, skip_related: bool) -> No
             app.session.commit()
     except Exception as e:
         app.session.rollback()
+        if sentry_sdk:
+            sentry_sdk.capture_exception(e)
         raise e
 
 
