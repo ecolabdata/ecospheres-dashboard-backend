@@ -137,15 +137,19 @@ def process_dataset(env: str, d: dict, licenses: list, skip_related: bool) -> No
     if organization_id := (d.get("organization") or {}).get("id"):
         load_organization(env, organization_id)
 
-    dataset_obj = Dataset.from_payload(d, prefix, licenses)
-    existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
-    upsert(app.session, dataset_obj, existing)
+    try:
+        dataset_obj = Dataset.from_payload(d, prefix, licenses)
+        existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
+        upsert(app.session, dataset_obj, existing)
 
-    if not skip_related:
-        for r in iter_rel(d["resources"], quiet=True):
-            resource_obj = Resource.from_payload(r, dataset_obj.dataset_id)
-            app.session.add(resource_obj)
-        app.session.commit()
+        if not skip_related:
+            for r in iter_rel(d["resources"], quiet=True):
+                resource_obj = Resource.from_payload(r, dataset_obj.dataset_id)
+                app.session.add(resource_obj)
+            app.session.commit()
+    except Exception as e:
+        app.session.rollback()
+        raise e
 
 
 @cli
