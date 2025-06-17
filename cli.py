@@ -134,10 +134,10 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
 def process_dataset(env: str, d: dict, licenses: list, skip_related: bool) -> None:
     """Process a single dataset and its resources"""
     prefix = get_config_value(env, "prefix")
-    if organization_id := (d.get("organization") or {}).get("id"):
-        load_organization(env, organization_id)
-
     try:
+        if organization_id := (d.get("organization") or {}).get("id"):
+            load_organization(env, organization_id)
+
         dataset_obj = Dataset.from_payload(d, prefix, licenses)
         existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
         upsert(app.session, dataset_obj, existing)
