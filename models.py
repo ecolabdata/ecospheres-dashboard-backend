@@ -193,6 +193,10 @@ class Dataset(Base):
     description__length: Mapped[int]
     description__length__ok: Mapped[bool]
 
+    # metrics
+    nb_visits_last_month: Mapped[Optional[int]]
+    nb_downloads_resources_last_month: Mapped[Optional[int]]
+
     # relationships
     resources: Mapped[List["Resource"]] = relationship("Resource", back_populates="dataset")
     bouquets: Mapped[list["Bouquet"]] = relationship(
@@ -332,6 +336,8 @@ class Organization(Base):
     acronym: Mapped[Optional[str]]
     service_public: Mapped[bool]
     type: Mapped[Optional[str]]
+    nb_visits_datasets_last_month: Mapped[Optional[int]]
+    nb_downloads_resources_last_month: Mapped[Optional[int]]
 
     # relationships
     datasets: Mapped[List["Dataset"]] = relationship(

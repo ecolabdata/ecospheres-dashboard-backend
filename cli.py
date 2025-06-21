@@ -10,6 +10,7 @@ from typing import NamedTuple
 import requests
 import sentry_sdk
 from minicli import cli, run, wrap
+from progressist import ProgressBar
 from sqlalchemy import and_, create_engine, inspect, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
 
@@ -76,6 +77,63 @@ def load_organization(env: str, organization_id: str, refresh: bool = False) -> 
             org_db = Organization.from_payload(r.json())
             organization = upsert(app.session, org_db, organization)
         return organization
+
+
+def get_datagouvfr_metrics(url: str, params: dict) -> dict | None:
+    now = date.today()
+    # metrics for last full month
+    metrics_month = f"{now.year}-{str(now.month - 1).zfill(2)}"
+    params["metric_month__exact"] = metrics_month
+    r = requests.get(url, params=params)
+    if r.ok and (metrics_data := r.json()["data"]):
+        return metrics_data[0]
+
+
+@cli
+def load_datagouvfr_metrics(env: str = "demo"):
+    metrics_url = get_config_value(env, "metrics_api_url")
+    if not metrics_url:
+        print("No metrics API URL configured.")
+        return
+
+    print("Loading metrics from data.gouv.fr for datasets...")
+    datasets = app.session.query(Dataset).filter_by(deleted=False).all()
+    total = app.session.query(Dataset).filter_by(deleted=False).count()
+    bar = ProgressBar(total=total)
+    for dataset in bar.iter(datasets):
+        metrics = get_datagouvfr_metrics(
+            f"{metrics_url}/datasets/data/", {"dataset_id__exact": dataset.dataset_id}
+        )
+        if not metrics:
+            continue
+        dataset.nb_visits_last_month = metrics.get("monthly_visit")
+        dataset.nb_downloads_resources_last_month = metrics.get("monthly_download_resource")
+        app.session.add(dataset)
+        try:
+            app.session.commit()
+        except Exception as e:
+            app.session.rollback()
+            print(f"Error updating dataset {dataset.dataset_id}: {e}")
+
+    print("Loading metrics from data.gouv.fr for organizations...")
+    organizations = app.session.query(Organization).all()
+    total = app.session.query(Organization).count()
+    bar = ProgressBar(total=total)
+    for organization in bar.iter(organizations):
+        metrics = get_datagouvfr_metrics(
+            f"{metrics_url}/organizations/data/",
+            {"organization_id__exact": organization.organization_id},
+        )
+        if not metrics:
+            continue
+        organization.nb_visits_datasets_last_month = metrics.get("monthly_visit_dataset")
+        organization.nb_downloads_resources_last_month = metrics.get("monthly_download_resource")
+        app.session.add(organization)
+        try:
+            app.session.commit()
+        except Exception as e:
+            app.session.rollback()
+            print(f"Error updating organization {organization.organization_id}: {e}")
 
 
 @cli
@@ -217,6 +275,9 @@ def load(
         load_bouquets(env=env, include_private=True)
 
     if not skip_metrics:
+        # we're loading metrics from last month, only run on the first of the month
+        if date.today().day == 1:
+            load_datagouvfr_metrics(env=env)
         compute_metrics(env=env)
 
     if not skip_stats:
