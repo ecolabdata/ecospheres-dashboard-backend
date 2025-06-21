@@ -5,3 +5,4 @@ psycopg2-binary
 gunicorn
 alembic
 sentry-sdk
+progressist
