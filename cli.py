@@ -5,13 +5,13 @@ from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date, timedelta
 from threading import Lock
-from typing import NamedTuple
+from typing import Callable, NamedTuple
 
 import requests
 import sentry_sdk
 from minicli import cli, run, wrap
 from progressist import ProgressBar
-from sqlalchemy import and_, create_engine, inspect, select, text, update
+from sqlalchemy import Select, and_, create_engine, func, inspect, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from alembic import command
@@ -79,14 +79,46 @@ def load_organization(env: str, organization_id: str, refresh: bool = False) -> 
         return organization
 
 
-def get_datagouvfr_metrics(url: str, params: dict) -> dict | None:
+def _get_datagouvfr_metrics(url: str, params: dict) -> list:
     now = date.today()
     # metrics for last full month
     metrics_month = f"{now.year}-{str(now.month - 1).zfill(2)}"
     params["metric_month__exact"] = metrics_month
     r = requests.get(url, params=params)
-    if r.ok and (metrics_data := r.json()["data"]):
-        return metrics_data[0]
+    if r.ok:
+        return r.json()["data"]
+    return []
+
+
+def _load_datagouvfr_metrics_batch(
+    url: str, query: Select, id_field: str, update_fn: Callable, batch_size: int = 50
+):
+    total = app.session.scalar(select(func.count("*")).select_from(query.subquery()))
+    bar = ProgressBar(total=total)
+    result = app.session.execute(query).yield_per(batch_size)
+    for batch in result.partitions():
+        items = [row[0] for row in batch]
+        metrics = _get_datagouvfr_metrics(
+            url,
+            {
+                f"{id_field}__in": ",".join(getattr(item, id_field) for item in items),
+                "page_size": batch_size,
+            },
+        )
+        for item in items:
+            bar.update()
+            metrics_data = next(
+                (m for m in metrics if m[id_field] == getattr(item, id_field)), None
+            )
+            if not metrics_data:
+                continue
+            update_fn(item, metrics_data)
+            app.session.add(item)
+        try:
+            app.session.commit()
+        except Exception as e:
+            app.session.rollback()
+            print(f"Error updating batch: {e}")
 
 
 @cli
@@ -96,44 +128,25 @@ def load_datagouvfr_metrics(env: str = "demo"):
         print("No metrics API URL configured.")
         return
 
+    def update_dataset(dataset: Dataset, metrics_data: dict):
+        dataset.nb_visits_last_month = metrics_data.get("monthly_visit")
+        dataset.nb_downloads_resources_last_month = metrics_data.get("monthly_download_resource")
+
+    def update_organization(org: Organization, metrics_data: dict):
+        org.nb_visits_datasets_last_month = metrics_data.get("monthly_visit_dataset")
+        org.nb_downloads_resources_last_month = metrics_data.get("monthly_download_resource")
+
     print("Loading metrics from data.gouv.fr for datasets...")
-    datasets = app.session.query(Dataset).filter_by(deleted=False).all()
-    total = app.session.query(Dataset).filter_by(deleted=False).count()
-    bar = ProgressBar(total=total)
-    for dataset in bar.iter(datasets):
-        metrics = get_datagouvfr_metrics(
-            f"{metrics_url}/datasets/data/", {"dataset_id__exact": dataset.dataset_id}
-        )
-        if not metrics:
-            continue
-        dataset.nb_visits_last_month = metrics.get("monthly_visit")
-        dataset.nb_downloads_resources_last_month = metrics.get("monthly_download_resource")
-        app.session.add(dataset)
-        try:
-            app.session.commit()
-        except Exception as e:
-            app.session.rollback()
-            print(f"Error updating dataset {dataset.dataset_id}: {e}")
+    datasets = select(Dataset).where(~Dataset.deleted)
+    _load_datagouvfr_metrics_batch(
+        f"{metrics_url}/datasets/data/", datasets, "dataset_id", update_dataset
+    )
 
     print("Loading metrics from data.gouv.fr for organizations...")
-    organizations = app.session.query(Organization).all()
-    total = app.session.query(Organization).count()
-    bar = ProgressBar(total=total)
-    for organization in bar.iter(organizations):
-        metrics = get_datagouvfr_metrics(
-            f"{metrics_url}/organizations/data/",
-            {"organization_id__exact": organization.organization_id},
-        )
-        if not metrics:
-            continue
-        organization.nb_visits_datasets_last_month = metrics.get("monthly_visit_dataset")
-        organization.nb_downloads_resources_last_month = metrics.get("monthly_download_resource")
-        app.session.add(organization)
-        try:
-            app.session.commit()
-        except Exception as e:
-            app.session.rollback()
-            print(f"Error updating organization {organization.organization_id}: {e}")
+    organizations = select(Organization)
+    _load_datagouvfr_metrics_batch(
+        f"{metrics_url}/organizations/data/", organizations, "organization_id", update_organization
+    )
 
 
 @cli
