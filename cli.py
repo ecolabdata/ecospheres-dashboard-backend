@@ -310,8 +310,8 @@ def load(
         load_bouquets(env=env, include_private=True)
 
     if not skip_metrics:
-        # we're loading metrics from last month, only run on the first of the month
-        if date.today().day == 1:
+        # we're loading metrics from last month, only run on the second of the month
+        if date.today().day == 2:
             load_datagouvfr_metrics(env=env)
         compute_metrics(env=env)
 
