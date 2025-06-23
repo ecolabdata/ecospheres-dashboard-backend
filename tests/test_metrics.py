@@ -4,8 +4,7 @@ from unittest.mock import patch
 import pytest
 import requests_mock
 
-from cli import _get_datagouvfr_metrics
-from metrics import compute_quality_score, quality_score_query
+from metrics import compute_quality_score, get_datagouvfr_metrics, quality_score_query
 
 
 @pytest.fixture
@@ -55,7 +54,7 @@ def test_get_datagouvfr_metrics(mock_date, mock_requests):
     }
     mock_requests.get(url, json=mock_response)
     mock_date.today.return_value = date(2025, 6, 1)
-    result = _get_datagouvfr_metrics(url, {})
+    result = get_datagouvfr_metrics(url, {})
     assert result == [
         {
             "__id": 50271644,
@@ -71,5 +70,5 @@ def test_get_datagouvfr_metrics(mock_date, mock_requests):
 def test_get_datagouvfr_metrics_not_found(mock_requests):
     url = "https://example.com/api"
     mock_requests.get(url, status_code=404)
-    result = _get_datagouvfr_metrics(url, {})
+    result = get_datagouvfr_metrics(url, {})
     assert result == []

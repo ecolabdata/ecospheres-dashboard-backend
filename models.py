@@ -193,10 +193,6 @@ class Dataset(Base):
     description__length: Mapped[int]
     description__length__ok: Mapped[bool]
 
-    # metrics
-    nb_visits_last_month: Mapped[Optional[int]]
-    nb_downloads_resources_last_month: Mapped[Optional[int]]
-
     # relationships
     resources: Mapped[List["Resource"]] = relationship("Resource", back_populates="dataset")
     bouquets: Mapped[list["Bouquet"]] = relationship(
@@ -336,8 +332,6 @@ class Organization(Base):
     acronym: Mapped[Optional[str]]
     service_public: Mapped[bool]
     type: Mapped[Optional[str]]
-    nb_visits_datasets_last_month: Mapped[Optional[int]]
-    nb_downloads_resources_last_month: Mapped[Optional[int]]
 
     # relationships
     datasets: Mapped[List["Dataset"]] = relationship(
@@ -428,17 +422,29 @@ class DatasetBouquet(Base):
         return f"<DatasetBouquet of <Bouquet {self.bouquet_id}> and <Dataset {self.dataset_id}>>"
 
 
-class Metric(Base):
-    __tablename__ = "metrics"
-
+class MetricMixin:
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     date: Mapped[date]
     measurement: Mapped[str]
     value: Mapped[float]
+
+
+class Metric(Base, MetricMixin):
+    __tablename__ = "metrics"
+
     organization: Mapped[Optional[str]]
 
     def __repr__(self) -> str:
         return f"<Metric {self.measurement}{' of ' + self.organization if self.organization else ''} at {self.date}>"
+
+
+class DatasetMetric(Base, MetricMixin):
+    __tablename__ = "datasets_metrics"
+
+    dataset: Mapped[Optional[str]]
+
+    def __repr__(self) -> str:
+        return f"<Metric {self.measurement}{' of ' + self.dataset if self.dataset else ''} at {self.date}>"
 
 
 class Stats(Base):
