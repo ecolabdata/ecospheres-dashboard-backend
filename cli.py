@@ -5,26 +5,27 @@ from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date, timedelta
 from threading import Lock
-from typing import NamedTuple
+from typing import Callable, NamedTuple
 
 import requests
 import sentry_sdk
 from minicli import cli, run, wrap
-from sqlalchemy import and_, create_engine, inspect, select, text, update
+from progressist import ProgressBar
+from sqlalchemy import Select, and_, create_engine, func, inspect, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from alembic import command
 from alembic.config import Config
 from config import get_config_value
-from metrics import compute_quality_score
+from metrics import add_metric, compute_quality_score, get_datagouvfr_metrics
 from models import (
     Base,
     Bouquet,
     Dataset,
     DatasetBouquet,
     DatasetComputedColumns,
+    DatasetMetric,
     EcospheresUniverseOrganization,
-    Metric,
     Organization,
     Resource,
     Stats,
@@ -76,6 +77,98 @@ def load_organization(env: str, organization_id: str, refresh: bool = False) -> 
             org_db = Organization.from_payload(r.json())
             organization = upsert(app.session, org_db, organization)
         return organization
+
+
+def _load_datagouvfr_metrics_batch(
+    url: str, query: Select, id_field: str, update_fn: Callable, batch_size: int = 50
+):
+    total = app.session.scalar(select(func.count("*")).select_from(query.subquery()))
+    bar = ProgressBar(total=total)
+    result = app.session.execute(query).yield_per(batch_size)
+    for batch in result.partitions():
+        items = [row[0] for row in batch]
+        metrics = get_datagouvfr_metrics(
+            url,
+            {
+                f"{id_field}__in": ",".join(getattr(item, id_field) for item in items),
+                "page_size": batch_size,
+            },
+        )
+        for item in items:
+            bar.update()
+            metrics_data = next(
+                (m for m in metrics if m[id_field] == getattr(item, id_field)), None
+            )
+            if not metrics_data:
+                continue
+            update_fn(item, metrics_data)
+            app.session.add(item)
+        try:
+            app.session.commit()
+        except Exception as e:
+            app.session.rollback()
+            print(f"Error updating batch: {e}")
+
+
+@cli
+def load_datagouvfr_metrics(env: str = "demo"):
+    metrics_url = get_config_value(env, "metrics_api_url")
+    if not metrics_url:
+        print("No metrics API URL configured.")
+        return
+
+    # those metrics are always associated to the first of the month for data of last month
+    at = date.today().replace(day=1)
+
+    def handle_dataset(dataset: Dataset, metrics_data: dict):
+        if monthly_visit := metrics_data.get("monthly_visit"):
+            add_metric(
+                app.session,
+                "nb_visits_last_month",
+                monthly_visit,
+                at=at,
+                dataset=dataset.dataset_id,
+                metric_model=DatasetMetric,
+            )
+        if monthly_download_resource := metrics_data.get("monthly_download_resource"):
+            add_metric(
+                app.session,
+                "nb_downloads_resources_last_month",
+                monthly_download_resource,
+                at=at,
+                dataset=dataset.dataset_id,
+                metric_model=DatasetMetric,
+            )
+
+    def handle_organization(org: Organization, metrics_data: dict):
+        if monthly_visit_dataset := metrics_data.get("monthly_visit_dataset"):
+            add_metric(
+                app.session,
+                "nb_visits_datasets_last_month",
+                monthly_visit_dataset,
+                at=at,
+                organization=org.organization_id,
+            )
+        if monthly_download_resource := metrics_data.get("monthly_download_resource"):
+            add_metric(
+                app.session,
+                "nb_downloads_resources_last_month",
+                monthly_download_resource,
+                at=at,
+                organization=org.organization_id,
+            )
+
+    print("Loading metrics from data.gouv.fr for datasets...")
+    datasets = select(Dataset).where(~Dataset.deleted)
+    _load_datagouvfr_metrics_batch(
+        f"{metrics_url}/datasets/data/", datasets, "dataset_id", handle_dataset
+    )
+
+    print("Loading metrics from data.gouv.fr for organizations...")
+    organizations = select(Organization)
+    _load_datagouvfr_metrics_batch(
+        f"{metrics_url}/organizations/data/", organizations, "organization_id", handle_organization
+    )
 
 
 @cli
@@ -217,6 +310,9 @@ def load(
         load_bouquets(env=env, include_private=True)
 
     if not skip_metrics:
+        # we're loading metrics from last month, only run on the second of the month
+        if date.today().day == 2:
+            load_datagouvfr_metrics(env=env)
         compute_metrics(env=env)
 
     if not skip_stats:
@@ -229,22 +325,6 @@ def compute_metrics(env: str = "demo"):
     Fill the time-series metrics table with today's data
     """
     print("Computing metrics...")
-    at = date.today()
-
-    def add_metric(
-        measurement: str,
-        value: float | None,
-        organization: str | None = None,
-    ):
-        metric_obj = Metric(
-            date=at, measurement=measurement, value=value, organization=organization
-        )
-        existing = (
-            app.session.query(Metric)
-            .filter_by(date=at, measurement=measurement, organization=organization)
-            .first()
-        )
-        upsert(app.session, metric_obj, existing)
 
     query = (
         select(Dataset.organization)
@@ -252,7 +332,7 @@ def compute_metrics(env: str = "demo"):
         .where(and_(~Dataset.deleted, Dataset.organization.is_not(None)))
     )
     org_ids = app.session.execute(query).scalars().all()
-    add_metric("nb_organizations", len(org_ids))
+    add_metric(app.session, "nb_organizations", len(org_ids))
 
     agg = defaultdict(int)
 
@@ -260,12 +340,15 @@ def compute_metrics(env: str = "demo"):
         nb_datasets = (
             app.session.query(Dataset).filter_by(organization=org_id, deleted=False).count()
         )
-        add_metric("nb_datasets", nb_datasets, organization=org_id)
+        add_metric(app.session, "nb_datasets", nb_datasets, organization=org_id)
         agg["nb_datasets"] += nb_datasets
 
         # average quality score per organization
         add_metric(
-            "avg_quality__score", compute_quality_score(app.session, org_id), organization=org_id
+            app.session,
+            "avg_quality__score",
+            compute_quality_score(app.session, org_id),
+            organization=org_id,
         )
 
         for indicator in DatasetComputedColumns.indicators:
@@ -277,64 +360,76 @@ def compute_metrics(env: str = "demo"):
             }
             measurement = f"nb_{field}"
             value = app.session.query(Dataset).filter_by(**query).count()
-            add_metric(measurement, value, organization=org_id)
+            add_metric(app.session, measurement, value, organization=org_id)
             agg[measurement] += value
 
     for agg_key, agg_value in agg.items():
-        add_metric(agg_key, agg_value)
+        add_metric(app.session, agg_key, agg_value)
 
     # global average quality score
-    add_metric("avg_quality__score", compute_quality_score(app.session))
+    add_metric(app.session, "avg_quality__score", compute_quality_score(app.session))
 
     # nb of associations bouquet <-> dataset from universe
     nb_datasets_bouquets = app.session.query(DatasetBouquet).count()
-    add_metric("nb_datasets_from_universe_in_bouquets", nb_datasets_bouquets)
+    add_metric(app.session, "nb_datasets_from_universe_in_bouquets", nb_datasets_bouquets)
 
     bouquets = app.session.query(Bouquet)
-    add_metric("nb_bouquets", bouquets.filter_by(deleted=False).count())
-    add_metric("nb_bouquets_public", bouquets.filter_by(deleted=False, private=False).count())
+    add_metric(app.session, "nb_bouquets", bouquets.filter_by(deleted=False).count())
+    add_metric(
+        app.session, "nb_bouquets_public", bouquets.filter_by(deleted=False, private=False).count()
+    )
     # nb_datasets_in_bouquets
     add_metric(
+        app.session,
         "nb_datasets_in_bouquets",
         sum(b.nb_datasets for b in bouquets.filter_by(deleted=False)),
     )
     add_metric(
+        app.session,
         "nb_datasets_in_bouquets_public",
         sum(b.nb_datasets for b in bouquets.filter_by(deleted=False, private=False)),
     )
     # nb_datasets_external_in_bouquets
     add_metric(
+        app.session,
         "nb_datasets_external_in_bouquets",
         sum(b.nb_datasets_external for b in bouquets.filter_by(deleted=False)),
     )
     add_metric(
+        app.session,
         "nb_datasets_external_in_bouquets_public",
         sum(b.nb_datasets_external for b in bouquets.filter_by(deleted=False, private=False)),
     )
     # nb_factors_in_bouquets
     add_metric(
+        app.session,
         "nb_factors_in_bouquets",
         sum(b.nb_factors for b in bouquets.filter_by(deleted=False)),
     )
     add_metric(
+        app.session,
         "nb_factors_in_bouquets_public",
         sum(b.nb_factors for b in bouquets.filter_by(deleted=False, private=False)),
     )
     # nb_factors_missing_in_bouquets
     add_metric(
+        app.session,
         "nb_factors_missing_in_bouquets",
         sum(b.nb_factors_missing for b in bouquets.filter_by(deleted=False)),
     )
     add_metric(
+        app.session,
         "nb_factors_missing_in_bouquets_public",
         sum(b.nb_factors_missing for b in bouquets.filter_by(deleted=False, private=False)),
     )
     # nb_factors_not_available_in_bouquets
     add_metric(
+        app.session,
         "nb_factors_not_available_in_bouquets",
         sum(b.nb_factors_not_available for b in bouquets.filter_by(deleted=False)),
     )
     add_metric(
+        app.session,
         "nb_factors_not_available_in_bouquets_public",
         sum(b.nb_factors_not_available for b in bouquets.filter_by(deleted=False, private=False)),
     )
