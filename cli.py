@@ -142,6 +142,7 @@ def process_element(env: str, element: dict, licenses: list, skip_related: bool)
     base_url = get_config_value(env, "base_url")
     try:
         r = requests.get(f"{base_url}/api/2/datasets/{element['element']['id']}/")
+        r.raise_for_status()
         dataset_payload = r.json()
         if organization_id := (dataset_payload.get("organization") or {}).get("id"):
             load_organization(env, organization_id)
