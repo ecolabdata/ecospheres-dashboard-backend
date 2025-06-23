@@ -140,19 +140,24 @@ def process_element(env: str, element: dict, licenses: list, skip_related: bool)
         print(f"Skipping element {element['id']} (not a dataset).")
         return
     base_url = get_config_value(env, "base_url")
-    r = requests.get(f"{base_url}/api/2/datasets/{element['element']['id']}/")
-    dataset_payload = r.json()
-    if organization_id := (dataset_payload.get("organization") or {}).get("id"):
-        load_organization(env, organization_id)
-    dataset_obj = Dataset.from_payload(dataset_payload, base_url, licenses)
-    existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
-    upsert(app.session, dataset_obj, existing)
+    try:
+        r = requests.get(f"{base_url}/api/2/datasets/{element['element']['id']}/")
+        dataset_payload = r.json()
+        if organization_id := (dataset_payload.get("organization") or {}).get("id"):
+            load_organization(env, organization_id)
+        dataset_obj = Dataset.from_payload(dataset_payload, base_url, licenses)
+        existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
+        upsert(app.session, dataset_obj, existing)
 
-    if not skip_related:
-        for r in iter_rel(dataset_payload["resources"], quiet=True):
-            resource_obj = Resource.from_payload(r, dataset_obj.dataset_id)
-            app.session.add(resource_obj)
-        app.session.commit()
+        if not skip_related:
+            for r in iter_rel(dataset_payload["resources"], quiet=True):
+                resource_obj = Resource.from_payload(r, dataset_obj.dataset_id)
+                app.session.add(resource_obj)
+    except Exception as e:
+        app.session.rollback()
+        if sentry_dsn:
+            sentry_sdk.capture_exception(e)
+        raise e
 
 
 @cli
