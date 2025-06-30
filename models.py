@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -370,11 +370,14 @@ class Bouquet(Base):
     extras: Mapped[dict] = mapped_column(JSONB)
     last_modified: Mapped[datetime]
     created_at: Mapped[datetime]
+    theme: Mapped[Optional[str]]
+
     nb_datasets: Mapped[int]
     nb_datasets_external: Mapped[int]
     nb_factors: Mapped[int]
     nb_factors_missing: Mapped[int]
     nb_factors_not_available: Mapped[int]
+
     deleted: Mapped[bool]
 
     # relationships
@@ -386,7 +389,9 @@ class Bouquet(Base):
         return f"<Bouquet {self.bouquet_id}>"
 
     @classmethod
-    def from_payload(cls, payload: dict) -> "Bouquet":
+    def from_payload(
+        cls, payload: dict, themes: list[dict[Literal["id", "name"], str]]
+    ) -> "Bouquet":
         data = payload.copy()
         data["deleted"] = False
 
@@ -394,6 +399,7 @@ class Bouquet(Base):
         data["bouquet_id"] = data.pop("id")
         data["organization"] = data["organization"]["id"] if data["organization"] else None
         data["owner"] = data["owner"]["id"] if data["owner"] else None
+        data["theme"] = next((t["name"] for t in themes if t["id"] in data["tags"]), None)
 
         datasets_properties = data["extras"]["ecospheres"]["datasets_properties"]
         data["nb_datasets"] = len([d for d in datasets_properties if d.get("id")])

@@ -5,7 +5,7 @@ from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date, timedelta
 from threading import Lock
-from typing import Callable, NamedTuple
+from typing import Callable, Literal, NamedTuple
 
 import requests
 import sentry_sdk
@@ -16,7 +16,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from alembic import command
 from alembic.config import Config
-from config import get_config_value
+from config import get_config_value, get_front_config
 from metrics import add_metric, compute_quality_score, get_datagouvfr_metrics
 from models import (
     Base,
@@ -193,8 +193,16 @@ def update_organizations(env: str = "demo"):
 
 
 @cli
-def load_bouquets(env: str = "demo", include_private: bool = False):
+def load_bouquets(env: str = "demo"):
     prefix = get_config_value(env, "prefix")
+
+    # build a pallatable list of themes from remote config
+    page_config = get_front_config(env)["pages"]["bouquets"]
+    raw_themes = next((f for f in page_config["filters"] if f["id"] == "theme"), {"values": []})
+    themes: list[dict[Literal["id", "name"], str]] = [
+        {"id": f"{page_config['tag_prefix']}-theme-{t['id']}", "name": t["name"]}
+        for t in raw_themes["values"]
+    ]
 
     app.session.execute(text("DELETE FROM datasets_bouquets"))
     app.session.commit()
@@ -206,8 +214,6 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
 
     universe_name = get_config_value(env, "universe_name")
     url = f"https://{prefix}.data.gouv.fr/api/2/topics/?tag={universe_name}"
-    if include_private:
-        url = f"{url}&include_private=yes"
 
     for bouquet in iter_rel(
         {
@@ -215,7 +221,7 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
         }
     ):
         existing = app.session.query(Bouquet).filter_by(bouquet_id=bouquet["id"]).first()
-        bouquet_obj = Bouquet.from_payload(bouquet)
+        bouquet_obj = Bouquet.from_payload(bouquet, themes)
         bouquet_obj = upsert(app.session, bouquet_obj, existing)
         for dataset in iter_rel(bouquet["datasets"], quiet=True):
             dataset_obj = app.session.query(Dataset).filter_by(dataset_id=dataset["id"]).first()
@@ -307,7 +313,7 @@ def load(
 
     if not skip_related:
         update_organizations(env=env)
-        load_bouquets(env=env, include_private=True)
+        load_bouquets(env=env)
 
     if not skip_metrics:
         # we're loading metrics from last month, only run on the second of the month

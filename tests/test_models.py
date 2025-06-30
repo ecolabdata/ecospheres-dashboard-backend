@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from models import Dataset, DatasetComputedColumns, ResourceComputedColumns
+from models import Bouquet, Dataset, DatasetComputedColumns, ResourceComputedColumns
 
 
 @pytest.fixture
@@ -263,3 +263,14 @@ def test_resource_model_indicators(fixture_payload):
     }
 
     assert actual | expected == actual  # type: ignore
+
+
+@pytest.mark.parametrize(
+    "fixture_payload", ["bouquet_payload_ok.json"], indirect=["fixture_payload"]
+)
+def test_bouquet_theme(fixture_payload):
+    bouquet = Bouquet.from_payload(
+        fixture_payload,
+        themes=[{"id": "ecospheres-theme-mieux-se-deplacer", "name": "Mieux se déplacer"}],
+    )
+    assert bouquet.theme == "Mieux se déplacer"

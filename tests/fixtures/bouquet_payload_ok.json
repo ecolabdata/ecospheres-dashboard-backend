@@ -1,0 +1,104 @@
+{
+    "id": "682d942102634f7cc798472e",
+    "name": "Les donn\u00e9es de mobilit\u00e9 du Cerema",
+    "slug": "les-donnees-de-mobilite-du-cerema",
+    "description": "Le Cerema g\u00e8re, produit et publie plusieurs jeux de donn\u00e9es sur data.gouv.fr. L'objectif de ce bouquet est d'y donner un acc\u00e8s en un clic. Ce bouquet liste les quelques datasets qui sont actualis\u00e9s au fil de l'eau ou chaque ann\u00e9e. Les donn\u00e9es du Cerema publi\u00e9s sur data gouv comprennent aussi des jeux donn\u00e9es historiques, qui ne sont pas mis \u00e0 jour. Pour les trouver : [page data.gouv](https://www.data.gouv.fr/fr/organizations/cerema/datasets/?page_size=20&tag=mobilite)\n",
+    "tags": [
+        "ecospheres-subtheme-mobilite-courte-distance-hors-voiture",
+        "ecospheres-theme-mieux-se-deplacer",
+        "univers-ecospheres"
+    ],
+    "datasets": {
+        "rel": "subsection",
+        "href": "https://www.data.gouv.fr/api/2/topics/682d942102634f7cc798472e/datasets/?page=1&page_size=20",
+        "type": "GET",
+        "total": 6
+    },
+    "reuses": {
+        "rel": "subsection",
+        "href": "https://www.data.gouv.fr/api/2/topics/682d942102634f7cc798472e/reuses/?page=1&page_size=20",
+        "type": "GET",
+        "total": 0
+    },
+    "featured": false,
+    "private": false,
+    "created_at": "2025-05-21T08:51:45.755000+00:00",
+    "spatial": {
+        "geom": null,
+        "zones": [
+            "country:fr"
+        ],
+        "granularity": "other"
+    },
+    "last_modified": "2025-05-27T13:08:55.224000+00:00",
+    "organization": {
+        "name": "Cerema",
+        "acronym": "Cerema",
+        "uri": "https://www.data.gouv.fr/api/1/organizations/cerema/",
+        "slug": "cerema",
+        "page": "https://www.data.gouv.fr/fr/organizations/cerema/",
+        "logo": "https://static.data.gouv.fr/avatars/6e/aa2d032798425bbf880a15dc2afcd0-original.jpg",
+        "logo_thumbnail": "https://static.data.gouv.fr/avatars/6e/aa2d032798425bbf880a15dc2afcd0-100.jpg",
+        "badges": [
+            {
+                "kind": "public-service"
+            },
+            {
+                "kind": "certified"
+            }
+        ],
+        "id": "5c812a16634f416583ed1876",
+        "class": "Organization"
+    },
+    "owner": null,
+    "uri": "https://www.data.gouv.fr/api/1/topics/les-donnees-de-mobilite-du-cerema/",
+    "page": "https://www.data.gouv.fr/fr/topics/les-donnees-de-mobilite-du-cerema/",
+    "extras": {
+        "ecospheres": {
+            "datasets_properties": [
+                {
+                    "title": "Base des Plans de Mobilit\u00e9 (PDM) et PDM simplifi\u00e9s",
+                    "purpose": "Donn\u00e9e Cerema",
+                    "availability": "available",
+                    "uri": "/datasets/67628c81ed433f189a30bc8c",
+                    "id": "67628c81ed433f189a30bc8c"
+                },
+                {
+                    "title": "Liste et composition des Autorit\u00e9s Organisatrices de la Mobilit\u00e9",
+                    "purpose": "Donn\u00e9e Cerema",
+                    "availability": "available",
+                    "uri": "/datasets/5b90e9338b4c413448c4b22a",
+                    "id": "5b90e9338b4c413448c4b22a"
+                },
+                {
+                    "title": "Base Passim : offres, services d'info et donn\u00e9es de transport",
+                    "purpose": "Donn\u00e9e Cerema",
+                    "availability": "available",
+                    "uri": "/datasets/56e2d64cc751df38e81ffccd",
+                    "id": "56e2d64cc751df38e81ffccd"
+                },
+                {
+                    "title": "Avatar : plate-forme publique des donn\u00e9es de trafic des gestionnaires routiers",
+                    "purpose": "Donn\u00e9es Cerema",
+                    "availability": "available",
+                    "uri": "/datasets/6756b5d8b860bca4a985e633",
+                    "id": "6756b5d8b860bca4a985e633"
+                },
+                {
+                    "title": "Recensement des r\u00e9seaux de Bus \u00e0 Haut Niveau de Service",
+                    "purpose": "Donn\u00e9e Cerema",
+                    "availability": "available",
+                    "uri": "/datasets/671790490c0225d4c6d44548",
+                    "id": "671790490c0225d4c6d44548"
+                },
+                {
+                    "title": "Base des Installations Terminales Embranch\u00e9es (ITE 3000)",
+                    "purpose": "Donn\u00e9e Cerema",
+                    "availability": "available",
+                    "uri": "/datasets/67a4cccd5dd42fd46f273269",
+                    "id": "67a4cccd5dd42fd46f273269"
+                }
+            ]
+        }
+    }
+}
