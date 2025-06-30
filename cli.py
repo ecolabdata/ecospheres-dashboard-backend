@@ -193,7 +193,7 @@ def update_organizations(env: str = "demo"):
 
 
 @cli
-def load_bouquets(env: str = "demo"):
+def load_bouquets(env: str = "demo", include_private: bool = False):
     prefix = get_config_value(env, "prefix")
 
     # build a pallatable list of themes from remote config
@@ -214,6 +214,8 @@ def load_bouquets(env: str = "demo"):
 
     universe_name = get_config_value(env, "universe_name")
     url = f"https://{prefix}.data.gouv.fr/api/2/topics/?tag={universe_name}"
+    if include_private:
+        url = f"{url}&include_private=yes"
 
     for bouquet in iter_rel(
         {
@@ -313,7 +315,7 @@ def load(
 
     if not skip_related:
         update_organizations(env=env)
-        load_bouquets(env=env)
+        load_bouquets(env=env, include_private=True)
 
     if not skip_metrics:
         # we're loading metrics from last month, only run on the second of the month
