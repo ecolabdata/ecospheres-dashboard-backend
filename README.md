@@ -29,7 +29,7 @@ python cli.py init-db
 Launch the main script:
 
 ```shell
-python cli.py load
+python cli.py load --env=(demo|prod)
 ```
 
 It will download the catalog from data.gouv.fr and update or create the rows in the various tables. Metrics will be computed for the current day (run it multiple days in a row to have historical depth).
