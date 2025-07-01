@@ -36,7 +36,7 @@ def test_quality_score_query():
     assert o_kwargs == {"org": "org"}
 
 
-@patch("datetime.date")
+@patch("metrics.date")
 def test_get_datagouvfr_metrics(mock_date, mock_requests):
     url = "https://example.com/api"
     mock_response = {
