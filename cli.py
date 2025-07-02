@@ -16,7 +16,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from alembic import command
 from alembic.config import Config
-from config import get_config_value
+from config import get_config_value, get_front_config
 from metrics import add_metric, compute_quality_score, get_datagouvfr_metrics
 from models import (
     Base,
@@ -196,6 +196,13 @@ def update_organizations(env: str = "demo"):
 def load_bouquets(env: str = "demo", include_private: bool = False):
     prefix = get_config_value(env, "prefix")
 
+    # build a pallatable list of themes from remote config
+    page_config = get_front_config(env)["pages"]["bouquets"]
+    raw_themes = next((f for f in page_config["filters"] if f["id"] == "theme"), {"values": []})
+    themes = {
+        f"{page_config['tag_prefix']}-theme-{t['id']}": t["name"] for t in raw_themes["values"]
+    }
+
     app.session.execute(text("DELETE FROM datasets_bouquets"))
     app.session.commit()
 
@@ -215,7 +222,7 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
         }
     ):
         existing = app.session.query(Bouquet).filter_by(bouquet_id=bouquet["id"]).first()
-        bouquet_obj = Bouquet.from_payload(bouquet)
+        bouquet_obj = Bouquet.from_payload(bouquet, themes)
         bouquet_obj = upsert(app.session, bouquet_obj, existing)
         for dataset in iter_rel(bouquet["datasets"], quiet=True):
             dataset_obj = app.session.query(Dataset).filter_by(dataset_id=dataset["id"]).first()
