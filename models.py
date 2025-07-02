@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import List, Literal, Optional
+from typing import List, Optional
 
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -389,9 +389,7 @@ class Bouquet(Base):
         return f"<Bouquet {self.bouquet_id}>"
 
     @classmethod
-    def from_payload(
-        cls, payload: dict, themes: list[dict[Literal["id", "name"], str]]
-    ) -> "Bouquet":
+    def from_payload(cls, payload: dict, themes: dict[str, str]) -> "Bouquet":
         data = payload.copy()
         data["deleted"] = False
 
@@ -399,7 +397,7 @@ class Bouquet(Base):
         data["bouquet_id"] = data.pop("id")
         data["organization"] = data["organization"]["id"] if data["organization"] else None
         data["owner"] = data["owner"]["id"] if data["owner"] else None
-        data["theme"] = next((t["name"] for t in themes if t["id"] in data["tags"]), None)
+        data["theme"] = next((themes[tid] for tid in themes if tid in data["tags"]), None)
 
         datasets_properties = data["extras"]["ecospheres"]["datasets_properties"]
         data["nb_datasets"] = len([d for d in datasets_properties if d.get("id")])

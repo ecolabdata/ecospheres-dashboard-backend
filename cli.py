@@ -5,7 +5,7 @@ from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date, timedelta
 from threading import Lock
-from typing import Callable, Literal, NamedTuple
+from typing import Callable, NamedTuple
 
 import requests
 import sentry_sdk
@@ -199,10 +199,9 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
     # build a pallatable list of themes from remote config
     page_config = get_front_config(env)["pages"]["bouquets"]
     raw_themes = next((f for f in page_config["filters"] if f["id"] == "theme"), {"values": []})
-    themes: list[dict[Literal["id", "name"], str]] = [
-        {"id": f"{page_config['tag_prefix']}-theme-{t['id']}", "name": t["name"]}
-        for t in raw_themes["values"]
-    ]
+    themes = {
+        f"{page_config['tag_prefix']}-theme-{t['id']}": t["name"] for t in raw_themes["values"]
+    }
 
     app.session.execute(text("DELETE FROM datasets_bouquets"))
     app.session.commit()

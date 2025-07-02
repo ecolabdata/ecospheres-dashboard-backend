@@ -271,6 +271,6 @@ def test_resource_model_indicators(fixture_payload):
 def test_bouquet_theme(fixture_payload):
     bouquet = Bouquet.from_payload(
         fixture_payload,
-        themes=[{"id": "ecospheres-theme-mieux-se-deplacer", "name": "Mieux se déplacer"}],
+        themes={"ecospheres-theme-mieux-se-deplacer": "Mieux se déplacer"},
     )
     assert bouquet.theme == "Mieux se déplacer"
