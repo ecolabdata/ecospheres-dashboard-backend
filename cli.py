@@ -193,7 +193,7 @@ def update_organizations(env: str = "demo"):
 
 
 @cli
-def load_bouquets(env: str = "demo", include_private: bool = False):
+def load_bouquets(env: str = "demo"):
     prefix = get_config_value(env, "prefix")
 
     # build a pallatable list of themes from remote config
@@ -213,8 +213,6 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
 
     universe_name = get_config_value(env, "universe_name")
     url = f"https://{prefix}.data.gouv.fr/api/2/topics/?tag={universe_name}"
-    if include_private:
-        url = f"{url}&include_private=yes"
 
     for bouquet in iter_rel(
         {
@@ -314,7 +312,7 @@ def load(
 
     if not skip_related:
         update_organizations(env=env)
-        load_bouquets(env=env, include_private=True)
+        load_bouquets(env=env)
 
     if not skip_metrics:
         # we're loading metrics from last month, only run on the second of the month
@@ -381,16 +379,10 @@ def compute_metrics(env: str = "demo"):
     add_metric(app.session, "nb_datasets_from_universe_in_bouquets", nb_datasets_bouquets)
 
     bouquets = app.session.query(Bouquet)
-    add_metric(app.session, "nb_bouquets", bouquets.filter_by(deleted=False).count())
     add_metric(
         app.session, "nb_bouquets_public", bouquets.filter_by(deleted=False, private=False).count()
     )
     # nb_datasets_in_bouquets
-    add_metric(
-        app.session,
-        "nb_datasets_in_bouquets",
-        sum(b.nb_datasets for b in bouquets.filter_by(deleted=False)),
-    )
     add_metric(
         app.session,
         "nb_datasets_in_bouquets_public",
@@ -399,20 +391,10 @@ def compute_metrics(env: str = "demo"):
     # nb_datasets_external_in_bouquets
     add_metric(
         app.session,
-        "nb_datasets_external_in_bouquets",
-        sum(b.nb_datasets_external for b in bouquets.filter_by(deleted=False)),
-    )
-    add_metric(
-        app.session,
         "nb_datasets_external_in_bouquets_public",
         sum(b.nb_datasets_external for b in bouquets.filter_by(deleted=False, private=False)),
     )
     # nb_factors_in_bouquets
-    add_metric(
-        app.session,
-        "nb_factors_in_bouquets",
-        sum(b.nb_factors for b in bouquets.filter_by(deleted=False)),
-    )
     add_metric(
         app.session,
         "nb_factors_in_bouquets_public",
@@ -421,20 +403,10 @@ def compute_metrics(env: str = "demo"):
     # nb_factors_missing_in_bouquets
     add_metric(
         app.session,
-        "nb_factors_missing_in_bouquets",
-        sum(b.nb_factors_missing for b in bouquets.filter_by(deleted=False)),
-    )
-    add_metric(
-        app.session,
         "nb_factors_missing_in_bouquets_public",
         sum(b.nb_factors_missing for b in bouquets.filter_by(deleted=False, private=False)),
     )
     # nb_factors_not_available_in_bouquets
-    add_metric(
-        app.session,
-        "nb_factors_not_available_in_bouquets",
-        sum(b.nb_factors_not_available for b in bouquets.filter_by(deleted=False)),
-    )
     add_metric(
         app.session,
         "nb_factors_not_available_in_bouquets_public",
