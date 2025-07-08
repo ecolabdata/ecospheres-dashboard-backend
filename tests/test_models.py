@@ -1,4 +1,6 @@
 import json
+from collections.abc import Iterable
+from math import ulp
 
 import pytest
 
@@ -247,6 +249,36 @@ def test_computed_get_license_title_found_key():
         {"license": "foo"}, prefix="test", licenses=[{"id": "foo", "title": "bar"}]
     )
     assert base.get_license_title() == "bar"
+
+
+def upper_bounds_generator(bounds: list[float]) -> Iterable[tuple[float, int, str]]:
+    """
+    Will generate a list such as:
+
+    # upper_bounds = [.33, .66, 1.]
+    [(0.0, 0, "moins de 0.33"), (5e-324, 0, , "moins de 0.33"), (0.166..., 0, "moins de 0.33"), (0.329..., 0, "moins de 0.33"),
+     (0.33, 1, "moins de 0.66"), ...
+     (0.66, 2, "moins de 1.0"), ...
+     (1.0, 3, "1.0")]
+    """
+    for bin, (lower, upper) in enumerate(zip([0.0] + bounds, bounds)):
+        label = f"moins de {upper}"
+        yield (lower, bin, label)
+        yield (lower + ulp(lower), bin, label)
+        yield (lower + (upper - lower) / 2, bin, label)
+        yield (upper - ulp(upper), bin, label)
+    yield (1.0, len(bounds), "1.0")
+
+
+@pytest.mark.parametrize(
+    "score,expected_bin,expected_label",
+    upper_bounds_generator(DatasetComputedColumns.QUALITY_SCORE_UPPER_BOUNDS),
+)
+def test_computed_get_quality_score_bin(score, expected_bin, expected_label):
+    base = DatasetComputedColumns({"quality": {"score": score}}, prefix="test")
+    bin = base.get_quality_score_bin()
+    assert bin.bin == expected_bin
+    assert bin.label == expected_label
 
 
 @pytest.mark.parametrize(

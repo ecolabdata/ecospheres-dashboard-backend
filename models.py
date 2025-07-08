@@ -1,7 +1,8 @@
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import List, Optional
+from itertools import takewhile
+from typing import List, NamedTuple, Optional
 
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -11,6 +12,11 @@ DEFAULT_EXCLUDE = (None,)
 DEFAULT_LIST_EXCLUDE = (None, [])
 DEFAULT_STRING_EXCLUDE = (None, "")
 DEFAULT_JSON_EXCLUDE = (None, {})
+
+
+class Bin(NamedTuple):
+    bin: int
+    label: str
 
 
 class Base(DeclarativeBase):
@@ -24,6 +30,7 @@ def exists(element, exclude: tuple = DEFAULT_EXCLUDE):
 class DatasetComputedColumns:
     MISSING_PREFIX_MESSAGE = "[préfixe absent]"
     DESCRIPTION_MIN_LENGTH = 200
+    QUALITY_SCORE_UPPER_BOUNDS = [0.2, 0.4, 0.6, 0.8, 1.0]
 
     indicators = [
         {"field": "license", "exclude": DEFAULT_STRING_EXCLUDE + ("notspecified",)},
@@ -119,7 +126,18 @@ class DatasetComputedColumns:
         license_id = self.payload.get("license")
         return next((item["title"] for item in self.licenses if item["id"] == license_id), None)
 
+    def get_quality_score_bin(self) -> Bin:
+        score = float(self.payload.get("quality", {}).get("score"))
+        bounds = self.QUALITY_SCORE_UPPER_BOUNDS
+        bin = len(list(takewhile(lambda v: v <= score, bounds)))
+        if bin < len(bounds):
+            label = f"moins de {bounds[bin]}"
+        else:
+            label = f"{bounds[-1]}"
+        return Bin(bin, label)
+
     def get_computed_columns(self):
+        score_bin = self.get_quality_score_bin()
         description_length = len(self.payload["description"] or "")
         return {
             "prefix_harvest_remote_id": self.get_prefix_or_fallback_from("remote_id"),
@@ -130,6 +148,8 @@ class DatasetComputedColumns:
             "license__title": self.get_license_title(),
             "description__length": description_length,
             "description__length__ok": description_length >= self.DESCRIPTION_MIN_LENGTH,
+            "quality__score__bin": score_bin.bin,
+            "quality__score__bin_label": score_bin.label,
         }
 
 
@@ -192,6 +212,8 @@ class Dataset(Base):
     consistent_temporal_coverage: Mapped[bool]
     description__length: Mapped[int]
     description__length__ok: Mapped[bool]
+    quality__score__bin: Mapped[int]
+    quality__score__bin_label: Mapped[str]
 
     # relationships
     resources: Mapped[List["Resource"]] = relationship("Resource", back_populates="dataset")
