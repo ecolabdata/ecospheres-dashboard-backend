@@ -118,6 +118,10 @@ class DatasetComputedColumns:
 
         return end > start
 
+    def get_spatial_coordinates(self) -> str | None:
+        if coords := ((self.payload.get("spatial") or {}).get("geom") or {}).get("coordinates"):
+            return repr(coords)
+
     def get_harvest_info(self, keys: list[str]) -> dict:
         harvest = self.payload.get("harvest") or {}
         return {f"harvest__{key}": val for key, val in harvest.items() if f"harvest__{key}" in keys}
@@ -151,6 +155,7 @@ class DatasetComputedColumns:
             "url_data_gouv": self.get_url_data_gouv(),
             "consistent_dates": self.get_consistent_dates(),
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
+            "spatial__coordinates": self.get_spatial_coordinates(),
             "license__title": self.get_license_title(),
             "description__length": description_length,
             "description__length__ok": description_length >= self.DESCRIPTION_MIN_LENGTH,
@@ -217,6 +222,7 @@ class Dataset(Base):
     url_data_gouv: Mapped[str]
     consistent_dates: Mapped[bool]
     consistent_temporal_coverage: Mapped[bool]
+    spatial__coordinates: Mapped[str | None]
     description__length: Mapped[int]
     description__length__ok: Mapped[bool]
     quality__score: Mapped[float]

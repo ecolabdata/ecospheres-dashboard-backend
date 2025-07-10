@@ -222,6 +222,39 @@ def test_computed_get_consistent_temporal_coverage_no_dates():
     assert base.get_consistent_temporal_coverage() is True
 
 
+def test_computed_get_spatial_coordinates():
+    geom = {
+        "coordinates": [
+            [
+                [
+                    [2.0629141330719, 46.8040313720703],
+                    [7.18588781356812, 46.8040313720703],
+                    [7.18588781356812, 44.1153793334961],
+                    [2.0629141330719, 44.1153793334961],
+                    [2.0629141330719, 46.8040313720703],
+                ]
+            ]
+        ],
+        "type": "MultiPolygon",
+    }
+    base = DatasetComputedColumns({"spatial": {"geom": geom}}, prefix="test")
+
+    assert base.get_spatial_coordinates() == repr(geom["coordinates"])
+
+
+def test_computed_get_spatial_coordinates_empty():
+    geom = {"coordinates": [], "type": "MultiPolygon"}
+    base = DatasetComputedColumns({"spatial": {"geom": geom}}, prefix="test")
+
+    assert base.get_spatial_coordinates() is None
+
+
+def test_computed_get_spatial_coordinates_missing():
+    base = DatasetComputedColumns({"spatial": {"geom": {}}}, prefix="test")
+
+    assert base.get_spatial_coordinates() is None
+
+
 @pytest.mark.parametrize("fixture_payload", ["payload_ok.json"], indirect=["fixture_payload"])
 def test_computed_harvest_spread(fixture_payload):
     base = DatasetComputedColumns(fixture_payload, prefix="test")
