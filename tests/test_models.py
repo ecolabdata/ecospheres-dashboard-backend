@@ -162,6 +162,28 @@ def test_computed_get_url_data_gouv():
     )
 
 
+def test_computed_get_year_from_harvest_date():
+    base = DatasetComputedColumns(
+        {
+            "harvest": {
+                "created_at": "2024-07-03T22:30:34.295000+00:00",
+                "modified_at": "2025-07-09T04:48:40.999000+00:00",
+            }
+        },
+        prefix="test",
+    )
+
+    assert base.get_year_from_harvest_date("created_at") == 2024
+    assert base.get_year_from_harvest_date("modified_at") == 2025
+
+
+def test_computed_get_year_from_harvest_missing():
+    base = DatasetComputedColumns({"harvest": {}}, prefix="test")
+
+    assert base.get_year_from_harvest_date("created_at") is None
+    assert base.get_year_from_harvest_date("modified_at") is None
+
+
 def test_computed_get_consistent_dates_updated_in_the_future():
     base = DatasetComputedColumns({"created_at": "100", "last_modified": "200"}, prefix="test")
 

@@ -95,6 +95,10 @@ class DatasetComputedColumns:
         id = self.payload["dataset_id"]
         return f'<a href="{url}{id}" target="_blank">{id}</a>'
 
+    def get_year_from_harvest_date(self, field: str) -> int | None:
+        if d := (self.payload.get("harvest") or {}).get(field):
+            return datetime.fromisoformat(d).year
+
     def get_consistent_dates(self) -> bool:
         created_at = self.payload.get("created_at")
         modified_at = self.payload.get("last_modified")
@@ -153,6 +157,8 @@ class DatasetComputedColumns:
             "prefix_harvest_remote_id": self.get_prefix_or_fallback_from("remote_id"),
             "prefix_harvest_remote_url": self.get_prefix_or_fallback_from("remote_url"),
             "url_data_gouv": self.get_url_data_gouv(),
+            "harvest__created_at__year": self.get_year_from_harvest_date("created_at"),
+            "harvest__modified_at__year": self.get_year_from_harvest_date("modified_at"),
             "consistent_dates": self.get_consistent_dates(),
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
             "spatial__coordinates": self.get_spatial_coordinates(),
@@ -194,10 +200,12 @@ class Dataset(Base):
     # harvest info columns
     harvest__backend: Mapped[Optional[str]]
     harvest__created_at: Mapped[Optional[datetime]]
+    harvest__created_at__year: Mapped[int | None]
     harvest__dct_identifier: Mapped[Optional[str]]
     harvest__domain: Mapped[Optional[str]]
     harvest__last_update: Mapped[Optional[datetime]]
     harvest__modified_at: Mapped[Optional[datetime]]
+    harvest__modified_at__year: Mapped[int | None]
     harvest__remote_id: Mapped[Optional[str]]
     harvest__remote_url: Mapped[Optional[str]]
     harvest__source_id: Mapped[Optional[str]]
