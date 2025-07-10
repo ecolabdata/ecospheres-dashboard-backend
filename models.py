@@ -34,6 +34,7 @@ class DatasetComputedColumns:
 
     indicators = [
         {"field": "license", "exclude": DEFAULT_STRING_EXCLUDE + ("notspecified",)},
+        {"field": "harvest", "exclude": DEFAULT_JSON_EXCLUDE},
         {"field": "harvest__created_at", "exclude": DEFAULT_EXCLUDE},
         {"field": "harvest__modified_at", "exclude": DEFAULT_EXCLUDE},
         {"field": "harvest__remote_id", "exclude": DEFAULT_STRING_EXCLUDE},
@@ -213,6 +214,7 @@ class Dataset(Base):
 
     # indicators columns
     has_license: Mapped[bool]
+    has_harvest: Mapped[bool]
     has_harvest__created_at: Mapped[bool]
     has_harvest__modified_at: Mapped[bool]
     has_harvest__remote_id: Mapped[bool]
