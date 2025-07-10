@@ -244,6 +244,42 @@ def test_computed_get_consistent_temporal_coverage_no_dates():
     assert base.get_consistent_temporal_coverage() is True
 
 
+def test_computed_get_temporal_coverage_range():
+    base = DatasetComputedColumns(
+        {"temporal_coverage": {"start": "2024-07-03", "end": "2025-07-09"}},
+        prefix="test",
+    )
+
+    assert base.get_temporal_coverage_range() == "2024-07-03 - 2025-07-09"
+
+
+def test_computed_get_temporal_coverage_range_start_only():
+    base = DatasetComputedColumns(
+        {"temporal_coverage": {"start": "2024-07-03"}},
+        prefix="test",
+    )
+
+    assert base.get_temporal_coverage_range() == "2024-07-03 - ?"
+
+
+def test_computed_get_temporal_coverage_range_end_only():
+    base = DatasetComputedColumns(
+        {"temporal_coverage": {"end": "2025-07-09"}},
+        prefix="test",
+    )
+
+    assert base.get_temporal_coverage_range() == "? - 2025-07-09"
+
+
+def test_computed_get_temporal_coverage_range_empty():
+    base = DatasetComputedColumns(
+        {"temporal_coverage": {}},
+        prefix="test",
+    )
+
+    assert base.get_temporal_coverage_range() is None
+
+
 def test_computed_get_spatial_coordinates():
     geom = {
         "coordinates": [

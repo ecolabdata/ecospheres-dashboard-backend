@@ -123,6 +123,13 @@ class DatasetComputedColumns:
 
         return end > start
 
+    def get_temporal_coverage_range(self) -> str | None:
+        coverage = self.payload["temporal_coverage"]
+        if coverage:
+            start = coverage.get("start") or "?"
+            end = coverage.get("end") or "?"
+            return f"{start} - {end}"
+
     def get_spatial_coordinates(self) -> str | None:
         if coords := ((self.payload.get("spatial") or {}).get("geom") or {}).get("coordinates"):
             return repr(coords)
@@ -162,6 +169,7 @@ class DatasetComputedColumns:
             "harvest__modified_at__year": self.get_year_from_harvest_date("modified_at"),
             "consistent_dates": self.get_consistent_dates(),
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
+            "temporal_coverage__range": self.get_temporal_coverage_range(),
             "spatial__coordinates": self.get_spatial_coordinates(),
             "license__title": self.get_license_title(),
             "description__length": description_length,
@@ -232,6 +240,7 @@ class Dataset(Base):
     url_data_gouv: Mapped[str]
     consistent_dates: Mapped[bool]
     consistent_temporal_coverage: Mapped[bool]
+    temporal_coverage__range: Mapped[str | None]
     spatial__coordinates: Mapped[str | None]
     description__length: Mapped[int]
     description__length__ok: Mapped[bool]
