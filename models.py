@@ -290,6 +290,11 @@ class ResourceComputedColumns:
     def __init__(self, payload: dict):
         self.payload = payload
 
+    def get_computed_columns(self) -> dict:
+        return {
+            "schema__name": (self.payload.get("schema") or {}).get("name"),
+        }
+
     def get_indicators(self) -> dict:
         return {
             "title__exists": exists(self.payload["title"], exclude=DEFAULT_STRING_EXCLUDE),
@@ -298,6 +303,7 @@ class ResourceComputedColumns:
             ),
             "type__exists": exists(self.payload["type"], exclude=DEFAULT_STRING_EXCLUDE),
             "format__exists": exists(self.payload["format"], exclude=DEFAULT_STRING_EXCLUDE),
+            "schema__exists": exists(self.payload.get("schema"), exclude=DEFAULT_STRING_EXCLUDE),
         }
 
 
@@ -326,6 +332,10 @@ class Resource(Base):
     description__exists: Mapped[Optional[bool]]
     type__exists: Mapped[Optional[bool]]
     format__exists: Mapped[Optional[bool]]
+    schema__exists: Mapped[bool]
+
+    # other computed columns
+    schema__name: Mapped[str | None]
 
     # relationships
     dataset_id: Mapped[str] = mapped_column(ForeignKey("catalog.dataset_id"))
@@ -344,6 +354,7 @@ class Resource(Base):
         return cls(
             **{
                 **{k: v for k, v in data.items() if hasattr(cls, k)},
+                **computer.get_computed_columns(),
                 **computer.get_indicators(),
                 "dataset_id": dataset_id,
             }
