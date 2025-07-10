@@ -4,7 +4,7 @@ from math import ulp
 
 import pytest
 
-from models import Bouquet, Dataset, DatasetComputedColumns, ResourceComputedColumns
+from models import Bouquet, ContactPoint, Dataset, DatasetComputedColumns, ResourceComputedColumns
 
 
 @pytest.fixture
@@ -376,6 +376,36 @@ def test_computed_get_quality_score_bin(score, expected_bin, expected_label):
     )
     assert bin.bin == expected_bin
     assert bin.label == expected_label
+
+
+def test_computed_get_first_contact_point():
+    base = DatasetComputedColumns(
+        {
+            "contact_points": [
+                {"name": "toto", "email": "toto@example.com"},
+                {"name": "titi", "email": "titi@example.com"},
+            ]
+        },
+        prefix="test",
+    )
+    assert base.get_first_contact_point() == ContactPoint(name="toto", email="toto@example.com")
+
+
+def test_computed_get_first_contact_point_name_only():
+    base = DatasetComputedColumns({"contact_points": [{"name": "toto"}]}, prefix="test")
+    assert base.get_first_contact_point() == ContactPoint(name="toto", email=None)
+
+
+def test_computed_get_first_contact_point_email_only():
+    base = DatasetComputedColumns(
+        {"contact_points": [{"email": "toto@example.com"}]}, prefix="test"
+    )
+    assert base.get_first_contact_point() == ContactPoint(name=None, email="toto@example.com")
+
+
+def test_computed_get_first_contact_point_empty():
+    base = DatasetComputedColumns({"contact_points": []}, prefix="test")
+    assert base.get_first_contact_point() is None
 
 
 @pytest.mark.parametrize(

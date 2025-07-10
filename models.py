@@ -19,6 +19,11 @@ class Bin(NamedTuple):
     label: str
 
 
+class ContactPoint(NamedTuple):
+    name: str | None
+    email: str | None
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -155,11 +160,16 @@ class DatasetComputedColumns:
             label = f"{bounds[-1]}"
         return Bin(bin, label)
 
+    def get_first_contact_point(self) -> ContactPoint | None:
+        if contacts := self.payload.get("contact_points"):
+            return ContactPoint(name=contacts[0].get("name"), email=contacts[0].get("email"))
+
     def get_computed_columns(self):
         quality_score = self.get_quality_score()
         quality_score_bin = self.get_quality_score_bin(
             quality_score, self.QUALITY_SCORE_UPPER_BOUNDS
         )
+        first_contact_point = self.get_first_contact_point()
         description_length = len(self.payload["description"] or "")
         return {
             "prefix_harvest_remote_id": self.get_prefix_or_fallback_from("remote_id"),
@@ -177,6 +187,12 @@ class DatasetComputedColumns:
             "quality__score": quality_score,
             "quality__score__bin": quality_score_bin.bin,
             "quality__score__bin_label": quality_score_bin.label,
+            "contact_points__first__name": first_contact_point.name
+            if first_contact_point
+            else None,
+            "contact_points__first__email": first_contact_point.email
+            if first_contact_point
+            else None,
         }
 
 
@@ -247,6 +263,8 @@ class Dataset(Base):
     quality__score: Mapped[float]
     quality__score__bin: Mapped[int]
     quality__score__bin_label: Mapped[str]
+    contact_points__first__name: Mapped[str | None]
+    contact_points__first__email: Mapped[str | None]
 
     # relationships
     resources: Mapped[List["Resource"]] = relationship("Resource", back_populates="dataset")
