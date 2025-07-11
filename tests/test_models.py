@@ -1,4 +1,6 @@
 import json
+from collections.abc import Iterable
+from math import ulp
 
 import pytest
 
@@ -10,6 +12,25 @@ def fixture_payload(request):
     with open(f"tests/fixtures/{request.param}", "r") as file:
         data = json.load(file)
     return data
+
+
+def upper_bounds_generator(bounds: list[float]) -> Iterable[tuple[float, int, str]]:
+    """
+    Will generate a list such as:
+
+    # upper_bounds = [.33, .66, 1.]
+    [(0.0, 0, "moins de 0.33"), (5e-324, 0, , "moins de 0.33"), (0.166..., 0, "moins de 0.33"), (0.329..., 0, "moins de 0.33"),
+     (0.33, 1, "moins de 0.66"), ...
+     (0.66, 2, "moins de 1.0"), ...
+     (1.0, 3, "1.0")]
+    """
+    for bin, (lower, upper) in enumerate(zip([0.0] + bounds, bounds)):
+        label = f"moins de {upper}"
+        yield (lower, bin, label)
+        yield (lower + ulp(lower), bin, label)
+        yield (lower + (upper - lower) / 2, bin, label)
+        yield (upper - ulp(upper), bin, label)
+    yield (1.0, len(bounds), "1.0")
 
 
 def test_computed_get_attr_by_path_return_none_on_keyerror():
@@ -247,6 +268,23 @@ def test_computed_get_license_title_found_key():
         {"license": "foo"}, prefix="test", licenses=[{"id": "foo", "title": "bar"}]
     )
     assert base.get_license_title() == "bar"
+
+
+def test_computed_get_quality_score():
+    base = DatasetComputedColumns({"quality": {"score": 0.2}}, prefix="test")
+    assert base.get_quality_score() == 0.2
+
+
+@pytest.mark.parametrize(
+    "score,expected_bin,expected_label",
+    upper_bounds_generator(DatasetComputedColumns.QUALITY_SCORE_UPPER_BOUNDS),
+)
+def test_computed_get_quality_score_bin(score, expected_bin, expected_label):
+    bin = DatasetComputedColumns.get_quality_score_bin(
+        score, DatasetComputedColumns.QUALITY_SCORE_UPPER_BOUNDS
+    )
+    assert bin.bin == expected_bin
+    assert bin.label == expected_label
 
 
 @pytest.mark.parametrize(
