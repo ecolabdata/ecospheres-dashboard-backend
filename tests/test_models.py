@@ -1,10 +1,16 @@
 import json
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from math import ulp
 
 import pytest
 
-from models import Bouquet, ContactPoint, Dataset, DatasetComputedColumns, ResourceComputedColumns
+from models import (
+    Bouquet,
+    ContactPoint,
+    Dataset,
+    DatasetComputedColumns,
+    ResourceComputedColumns,
+)
 
 
 @pytest.fixture
@@ -14,23 +20,39 @@ def fixture_payload(request):
     return data
 
 
-def upper_bounds_generator(bounds: list[float]) -> Iterable[tuple[float, int, str]]:
+def upper_bounds_generator[T: (int, float)](
+    bounds: list[T], epsilon: Callable[[T], T], open: bool
+) -> Iterable[tuple[T, int, str]]:
     """
-    Will generate a list such as:
+    Will generate lists such as:
 
-    # upper_bounds = [.33, .66, 1.]
+    # bounds = [.33, .66, 1.], epsilon = lambda v: v + ulp(v), open = False
     [(0.0, 0, "moins de 0.33"), (5e-324, 0, , "moins de 0.33"), (0.166..., 0, "moins de 0.33"), (0.329..., 0, "moins de 0.33"),
      (0.33, 1, "moins de 0.66"), ...
      (0.66, 2, "moins de 1.0"), ...
      (1.0, 3, "1.0")]
+
+    # bounds = [10, 20, 30], epsilon = lambda v: 1, open = True
+    [(0, 0, "moins de 10"), (1, 0, "moins de 10"), (5, 0, "moins de 10"), (9, 0, "moins de 10"),
+     (10, 1, "moins de 20"), ...
+     (20, 2, "moins de 30"), ...
+     (30, 3, "au moins 30"), (31, 3, "au moins 30")]
     """
-    for bin, (lower, upper) in enumerate(zip([0.0] + bounds, bounds)):
+    max_value = bounds[-1]
+    cast = type(max_value)
+    for bin, (lower, upper) in enumerate(zip([cast(0)] + bounds, bounds)):
         label = f"moins de {upper}"
         yield (lower, bin, label)
-        yield (lower + ulp(lower), bin, label)
-        yield (lower + (upper - lower) / 2, bin, label)
-        yield (upper - ulp(upper), bin, label)
-    yield (1.0, len(bounds), "1.0")
+        yield (lower + epsilon(lower), bin, label)
+        yield (cast(lower + (upper - lower) / 2), bin, label)
+        yield (upper - epsilon(upper), bin, label)
+    max_bin = len(bounds)
+    if open:
+        label = f"au moins {max_value}"
+        yield (max_value, max_bin, label)
+        yield (max_value + epsilon(max_value), max_bin, label)
+    else:
+        yield (max_value, max_bin, f"{max_value}")
 
 
 def test_computed_get_attr_by_path_return_none_on_keyerror():
@@ -361,6 +383,18 @@ def test_computed_get_license_title_found_key():
     assert base.get_license_title() == "bar"
 
 
+@pytest.mark.parametrize(
+    "length,expected_bin,expected_label",
+    upper_bounds_generator(
+        DatasetComputedColumns.DESCRIPTION_UPPER_BOUNDS.values, lambda v: 1, True
+    ),
+)
+def test_computed_get_description_bin(length, expected_bin, expected_label):
+    bin = DatasetComputedColumns.get_bin(length, DatasetComputedColumns.DESCRIPTION_UPPER_BOUNDS)
+    assert bin.bin == expected_bin
+    assert bin.label == expected_label
+
+
 def test_computed_get_quality_score():
     base = DatasetComputedColumns({"quality": {"score": 0.2}}, prefix="test")
     assert base.get_quality_score() == 0.2
@@ -368,12 +402,12 @@ def test_computed_get_quality_score():
 
 @pytest.mark.parametrize(
     "score,expected_bin,expected_label",
-    upper_bounds_generator(DatasetComputedColumns.QUALITY_SCORE_UPPER_BOUNDS),
+    upper_bounds_generator(
+        DatasetComputedColumns.QUALITY_SCORE_UPPER_BOUNDS.values, lambda v: ulp(v), False
+    ),
 )
 def test_computed_get_quality_score_bin(score, expected_bin, expected_label):
-    bin = DatasetComputedColumns.get_quality_score_bin(
-        score, DatasetComputedColumns.QUALITY_SCORE_UPPER_BOUNDS
-    )
+    bin = DatasetComputedColumns.get_bin(score, DatasetComputedColumns.QUALITY_SCORE_UPPER_BOUNDS)
     assert bin.bin == expected_bin
     assert bin.label == expected_label
 

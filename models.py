@@ -14,6 +14,11 @@ DEFAULT_STRING_EXCLUDE = (None, "")
 DEFAULT_JSON_EXCLUDE = (None, {})
 
 
+class Bounds[T: (int, float)](NamedTuple):
+    values: list[T]
+    open: bool
+
+
 class Bin(NamedTuple):
     bin: int
     label: str
@@ -35,7 +40,8 @@ def exists(element, exclude: tuple = DEFAULT_EXCLUDE):
 class DatasetComputedColumns:
     MISSING_PREFIX_MESSAGE = "[préfixe absent]"
     DESCRIPTION_MIN_LENGTH = 200
-    QUALITY_SCORE_UPPER_BOUNDS = [0.2, 0.4, 0.6, 0.8, 1.0]
+    DESCRIPTION_UPPER_BOUNDS = Bounds[int]([DESCRIPTION_MIN_LENGTH, 1000, 5000], True)
+    QUALITY_SCORE_UPPER_BOUNDS = Bounds[float]([0.2, 0.4, 0.6, 0.8, 1.0], False)
 
     indicators = [
         {"field": "license", "exclude": DEFAULT_STRING_EXCLUDE + ("notspecified",)},
@@ -51,6 +57,16 @@ class DatasetComputedColumns:
         {"field": "frequency", "exclude": DEFAULT_STRING_EXCLUDE + ("unknown",)},
         {"field": "contact_points", "exclude": DEFAULT_LIST_EXCLUDE},
     ]
+
+    @staticmethod
+    def get_bin(value, bounds) -> Bin:
+        bin = len(list(takewhile(lambda v: v <= value, bounds.values)))
+        if bin < len(bounds.values):
+            label = f"moins de {bounds.values[bin]}"
+        else:
+            v = bounds.values[-1]
+            label = f"au moins {v}" if bounds.open else f"{v}"
+        return Bin(bin, label)
 
     def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
         self.payload = payload
@@ -151,26 +167,16 @@ class DatasetComputedColumns:
         quality = self.payload.get("quality") or {}
         return float(quality.get("score", 0))
 
-    @staticmethod
-    def get_quality_score_bin(score, bounds) -> Bin:
-        bin = len(list(takewhile(lambda v: v <= score, bounds)))
-        if bin < len(bounds):
-            label = f"moins de {bounds[bin]}"
-        else:
-            label = f"{bounds[-1]}"
-        return Bin(bin, label)
-
     def get_first_contact_point(self) -> ContactPoint | None:
         if contacts := self.payload.get("contact_points"):
             return ContactPoint(name=contacts[0].get("name"), email=contacts[0].get("email"))
 
     def get_computed_columns(self):
-        quality_score = self.get_quality_score()
-        quality_score_bin = self.get_quality_score_bin(
-            quality_score, self.QUALITY_SCORE_UPPER_BOUNDS
-        )
-        first_contact_point = self.get_first_contact_point()
         description_length = len(self.payload["description"] or "")
+        description_bin = self.get_bin(description_length, self.DESCRIPTION_UPPER_BOUNDS)
+        quality_score = self.get_quality_score()
+        quality_score_bin = self.get_bin(quality_score, self.QUALITY_SCORE_UPPER_BOUNDS)
+        first_contact_point = self.get_first_contact_point()
         return {
             "prefix_harvest_remote_id": self.get_prefix_or_fallback_from("remote_id"),
             "prefix_harvest_remote_url": self.get_prefix_or_fallback_from("remote_url"),
@@ -182,8 +188,9 @@ class DatasetComputedColumns:
             "temporal_coverage__range": self.get_temporal_coverage_range(),
             "spatial__coordinates": self.get_spatial_coordinates(),
             "license__title": self.get_license_title(),
-            "description__length": description_length,
             "description__length__ok": description_length >= self.DESCRIPTION_MIN_LENGTH,
+            "description__length__bin": description_bin.bin,
+            "description__length__bin_label": description_bin.label,
             "quality__score": quality_score,
             "quality__score__bin": quality_score_bin.bin,
             "quality__score__bin_label": quality_score_bin.label,
@@ -258,8 +265,9 @@ class Dataset(Base):
     consistent_temporal_coverage: Mapped[bool]
     temporal_coverage__range: Mapped[str | None]
     spatial__coordinates: Mapped[str | None]
-    description__length: Mapped[int]
     description__length__ok: Mapped[bool]
+    description__length__bin: Mapped[int]
+    description__length__bin_label: Mapped[str]
     quality__score: Mapped[float]
     quality__score__bin: Mapped[int]
     quality__score__bin_label: Mapped[str]
