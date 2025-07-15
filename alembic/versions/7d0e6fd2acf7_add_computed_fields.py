@@ -23,19 +23,36 @@ def upgrade() -> None:
     op.drop_column("catalog", "description__length")
     op.add_column("catalog", sa.Column("contact_points__first__email", sa.String(), nullable=True))
     op.add_column("catalog", sa.Column("contact_points__first__name", sa.String(), nullable=True))
-    op.add_column("catalog", sa.Column("description__length__bin", sa.Integer(), nullable=False))
     op.add_column(
-        "catalog", sa.Column("description__length__bin_label", sa.String(), nullable=False)
+        "catalog",
+        sa.Column("description__length__bin", sa.Integer(), nullable=False, server_default="0"),
+    )
+    op.add_column(
+        "catalog",
+        sa.Column("description__length__bin_label", sa.String(), nullable=False, server_default=""),
     )
     op.add_column("catalog", sa.Column("harvest__created_at__year", sa.Integer(), nullable=True))
     op.add_column("catalog", sa.Column("harvest__modified_at__year", sa.Integer(), nullable=True))
-    op.add_column("catalog", sa.Column("has_harvest", sa.Boolean(), nullable=False))
-    op.add_column("catalog", sa.Column("quality__score", sa.Float(), nullable=False))
-    op.add_column("catalog", sa.Column("quality__score__bin", sa.Integer(), nullable=False))
-    op.add_column("catalog", sa.Column("quality__score__bin_label", sa.String(), nullable=False))
+    op.add_column(
+        "catalog", sa.Column("has_harvest", sa.Boolean(), nullable=False, server_default=sa.false())
+    )
+    op.add_column(
+        "catalog", sa.Column("quality__score", sa.Float(), nullable=False, server_default="0")
+    )
+    op.add_column(
+        "catalog",
+        sa.Column("quality__score__bin", sa.Integer(), nullable=False, server_default="0"),
+    )
+    op.add_column(
+        "catalog",
+        sa.Column("quality__score__bin_label", sa.String(), nullable=False, server_default=""),
+    )
     op.add_column("catalog", sa.Column("spatial__coordinates", sa.String(), nullable=True))
     op.add_column("catalog", sa.Column("temporal_coverage__range", sa.String(), nullable=True))
-    op.add_column("resources", sa.Column("schema__exists", sa.Boolean(), nullable=False))
+    op.add_column(
+        "resources",
+        sa.Column("schema__exists", sa.Boolean(), nullable=False, server_default=sa.false()),
+    )
     op.add_column("resources", sa.Column("schema__name", sa.String(), nullable=True))
 
 
