@@ -335,6 +335,29 @@ def test_computed_get_spatial_coordinates_missing():
     assert base.get_spatial_coordinates() is None
 
 
+def test_computed_get_spatial_coordinates_too_long():
+    geom = {
+        "coordinates": [
+            [
+                [
+                    [2.0629141330719, 46.8040313720703],
+                    [7.18588781356812, 46.8040313720703],
+                    [7.18588781356812, 44.1153793334961],
+                    [2.0629141330719, 44.1153793334961],
+                    [2.0629141330719, 46.8040313720703],
+                ]
+                * 20
+            ]
+        ],
+        "type": "MultiPolygon",
+    }
+    base = DatasetComputedColumns({"spatial": {"geom": geom}}, prefix="test")
+
+    coords = base.get_spatial_coordinates()
+    assert coords is not None
+    assert len(coords) <= DatasetComputedColumns.SPATIAL_COORDINATES_MAX_LENGTH
+
+
 @pytest.mark.parametrize("fixture_payload", ["payload_ok.json"], indirect=["fixture_payload"])
 def test_computed_harvest_spread(fixture_payload):
     base = DatasetComputedColumns(fixture_payload, prefix="test")

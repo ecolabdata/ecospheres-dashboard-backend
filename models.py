@@ -2,6 +2,7 @@ import re
 from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import date, datetime
+from textwrap import shorten
 from typing import List, NamedTuple, Optional
 
 from sqlalchemy import ForeignKey, Integer, String
@@ -42,6 +43,7 @@ class DatasetComputedColumns:
     DESCRIPTION_MIN_LENGTH = 200
     DESCRIPTION_UPPER_BOUNDS = Bounds[int]([DESCRIPTION_MIN_LENGTH, 1000, 5000], True)
     QUALITY_SCORE_UPPER_BOUNDS = Bounds[float]([0.2, 0.4, 0.6, 0.8, 1.0], False)
+    SPATIAL_COORDINATES_MAX_LENGTH = 500
 
     indicators = [
         {"field": "license", "exclude": DEFAULT_STRING_EXCLUDE + ("notspecified",)},
@@ -153,7 +155,9 @@ class DatasetComputedColumns:
 
     def get_spatial_coordinates(self) -> str | None:
         if coords := ((self.payload.get("spatial") or {}).get("geom") or {}).get("coordinates"):
-            return repr(coords)
+            return shorten(
+                repr(coords), width=self.SPATIAL_COORDINATES_MAX_LENGTH, placeholder="..."
+            )
 
     def get_harvest_info(self, keys: list[str]) -> dict:
         harvest = self.payload.get("harvest") or {}
