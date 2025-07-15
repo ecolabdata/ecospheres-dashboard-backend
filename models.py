@@ -1,7 +1,7 @@
 import re
+from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import date, datetime
-from itertools import takewhile
 from typing import List, NamedTuple, Optional
 
 from sqlalchemy import ForeignKey, Integer, String
@@ -59,8 +59,8 @@ class DatasetComputedColumns:
     ]
 
     @staticmethod
-    def get_bin(value, bounds) -> Bin:
-        bin = len(list(takewhile(lambda v: v <= value, bounds.values)))
+    def get_bin[T: (int, float)](value: T, bounds: Bounds[T]) -> Bin:
+        bin = bisect_right(bounds.values, value)
         if bin < len(bounds.values):
             label = f"moins de {bounds.values[bin]}"
         else:
