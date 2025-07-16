@@ -8,6 +8,32 @@ import requests
 from sqlalchemy.orm import scoped_session
 
 
+def no_value_dict(obj: Any) -> bool:
+    return isinstance(obj, dict) and all(v is None for v in obj.values())
+
+
+DEFAULT_EXCLUDE = (None,)
+DEFAULT_JSON_EXCLUDE = (None, {}, no_value_dict)
+DEFAULT_LIST_EXCLUDE = (None, [])
+DEFAULT_STRING_EXCLUDE = (None, "")
+
+
+def accept(element: Any, exclude: Sequence[Any] = DEFAULT_EXCLUDE) -> bool:
+    """
+    Return True if `element` is not in the `exclude` sequence, False otherwise.
+
+    The `exclude` sequence can contain:
+    - A value which should be excluded.
+    - A callable taking `element` as a single parameter and returning True iff `element` should be excluded.
+    """
+    for item in exclude:
+        if callable(item) and item(element):
+            return False
+        elif element == item:
+            return False
+    return True
+
+
 class HasId(Protocol):
     id: Any
 
@@ -57,29 +83,3 @@ def iter_rel(rel: Rel, quiet: bool = False, page_size: int | None = None):
         current_url = payload["next_page"]
         for d in payload["data"]:
             yield d
-
-
-def no_value_dict(obj: Any) -> bool:
-    return isinstance(obj, dict) and all([v is None for v in obj.values()])
-
-
-DEFAULT_EXCLUDE = (None,)
-DEFAULT_JSON_EXCLUDE = (None, {}, no_value_dict)
-DEFAULT_LIST_EXCLUDE = (None, [])
-DEFAULT_STRING_EXCLUDE = (None, "")
-
-
-def accept(element: Any, exclude: Sequence[Any] = DEFAULT_EXCLUDE) -> bool:
-    """
-    Return True if `element` is not in the `exclude` sequence, False otherwise.
-
-    The `exclude` sequence can contain:
-    - A value which should be excluded.
-    - A callable taking `element` as a single parameter and returning True iff `element` should be excluded.
-    """
-    for item in exclude:
-        if callable(item) and item(element):
-            return False
-        elif element == item:
-            return False
-    return True
