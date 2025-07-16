@@ -9,10 +9,13 @@ from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-DEFAULT_EXCLUDE = (None,)
-DEFAULT_LIST_EXCLUDE = (None, [])
-DEFAULT_STRING_EXCLUDE = (None, "")
-DEFAULT_JSON_EXCLUDE = (None, {})
+from utils import (
+    DEFAULT_EXCLUDE,
+    DEFAULT_JSON_EXCLUDE,
+    DEFAULT_LIST_EXCLUDE,
+    DEFAULT_STRING_EXCLUDE,
+    accept,
+)
 
 
 class Bounds[T: (int, float)](NamedTuple):
@@ -32,10 +35,6 @@ class ContactPoint(NamedTuple):
 
 class Base(DeclarativeBase):
     pass
-
-
-def exists(element, exclude: tuple = DEFAULT_EXCLUDE):
-    return element not in exclude
 
 
 class DatasetComputedColumns:
@@ -94,7 +93,7 @@ class DatasetComputedColumns:
         for indicator in self.indicators:
             field = indicator["field"]
             value = self.get_attr_by_path(field)
-            indicators[f"has_{field}"] = exists(value, exclude=indicator["exclude"])
+            indicators[f"has_{field}"] = accept(value, exclude=indicator["exclude"])
         return indicators
 
     def get_prefix_or_fallback_from(self, key) -> str:
@@ -336,13 +335,13 @@ class ResourceComputedColumns:
 
     def get_indicators(self) -> dict:
         return {
-            "title__exists": exists(self.payload["title"], exclude=DEFAULT_STRING_EXCLUDE),
-            "description__exists": exists(
+            "title__exists": accept(self.payload["title"], exclude=DEFAULT_STRING_EXCLUDE),
+            "description__exists": accept(
                 self.payload["description"], exclude=DEFAULT_STRING_EXCLUDE
             ),
-            "type__exists": exists(self.payload["type"], exclude=DEFAULT_STRING_EXCLUDE),
-            "format__exists": exists(self.payload["format"], exclude=DEFAULT_STRING_EXCLUDE),
-            "schema__exists": exists(self.payload.get("schema"), exclude=DEFAULT_STRING_EXCLUDE),
+            "type__exists": accept(self.payload["type"], exclude=DEFAULT_STRING_EXCLUDE),
+            "format__exists": accept(self.payload["format"], exclude=DEFAULT_STRING_EXCLUDE),
+            "schema__exists": accept(self.payload.get("schema"), exclude=DEFAULT_JSON_EXCLUDE),
         }
 
 

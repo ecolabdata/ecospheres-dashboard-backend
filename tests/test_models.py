@@ -1,4 +1,5 @@
 import json
+from collections import defaultdict
 from collections.abc import Callable, Iterable
 from math import ulp
 
@@ -476,9 +477,26 @@ def test_resource_model_indicators(fixture_payload):
         "description__exists": False,
         "type__exists": True,
         "format__exists": False,
+        "schema__exists": False,
     }
 
     assert actual | expected == actual  # type: ignore
+
+
+@pytest.mark.parametrize(
+    "payload,expected",
+    [
+        ({"schema": None}, False),
+        ({"schema": {"name": "foo", "url": None, "version": None}}, True),
+        ({"schema": {"name": None, "url": "http://example.com/foo", "version": None}}, True),
+        ({"schema": {"name": None, "url": None, "version": None}}, False),
+    ],
+)
+def test_resource_schema(payload, expected):
+    # using defaultdict so we don't have to specify all non-relevant but required resource keys
+    default_payload = defaultdict(lambda: None, payload)
+    actual = ResourceComputedColumns(default_payload).get_indicators()
+    assert actual["schema__exists"] == expected
 
 
 @pytest.mark.parametrize(
