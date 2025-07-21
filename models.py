@@ -364,6 +364,7 @@ class Resource(Base):
     harvest: Mapped[Optional[dict]] = mapped_column(JSONB)
     internal: Mapped[dict] = mapped_column(JSONB)
     schema: Mapped[Optional[dict]] = mapped_column(JSONB)
+    available: Mapped[bool]
 
     # indicators columns
     title__exists: Mapped[bool]
@@ -386,6 +387,7 @@ class Resource(Base):
     def from_payload(cls, payload: dict, dataset_id: str) -> "Resource":
         data = payload.copy()
         data["resource_id"] = data.pop("id")
+        data["available"] = bool((data.get("extras") or {}).get("check:available"))
 
         computer = ResourceComputedColumns(data)
 
