@@ -10,6 +10,7 @@ from models import (
     ContactPoint,
     Dataset,
     DatasetComputedColumns,
+    Resource,
     ResourceComputedColumns,
 )
 
@@ -497,6 +498,24 @@ def test_resource_schema(payload, expected):
     default_payload = defaultdict(lambda: None, payload)
     actual = ResourceComputedColumns(default_payload).get_indicators()
     assert actual["schema__exists"] == expected
+
+
+@pytest.mark.parametrize(
+    "payload,expected",
+    [
+        ({}, False),
+        ({"extras": None}, False),
+        ({"extras": {}}, False),
+        ({"extras": {"check:available": None}}, False),
+        ({"extras": {"check:available": False}}, False),
+        ({"extras": {"check:available": True}}, True),
+    ],
+)
+def test_resource_available(payload, expected):
+    # using defaultdict so we don't have to specify all non-relevant but required resource keys
+    default_payload = defaultdict(lambda: None, {"id": "test", **payload})
+    actual = Resource.from_payload(default_payload, "test")
+    assert actual.available == expected
 
 
 @pytest.mark.parametrize(
