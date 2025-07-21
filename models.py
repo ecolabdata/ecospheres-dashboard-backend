@@ -331,7 +331,6 @@ class ResourceComputedColumns:
     def get_computed_columns(self) -> dict:
         return {
             "schema__name": (self.payload.get("schema") or {}).get("name"),
-            "available": bool((self.payload.get("extras") or {}).get("check:available")),
         }
 
     def get_indicators(self) -> dict:
