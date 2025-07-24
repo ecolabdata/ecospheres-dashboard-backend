@@ -369,48 +369,63 @@ def compute_metrics(env: str = "demo"):
             agg[measurement] += value
 
     for agg_key, agg_value in agg.items():
-        add_metric(app.session, agg_key, agg_value)
+        add_metric(app.session, agg_key, agg_value, organization=None)
 
     # global average quality score
-    add_metric(app.session, "avg_quality__score", compute_quality_score(app.session))
+    add_metric(
+        app.session, "avg_quality__score", compute_quality_score(app.session), organization=None
+    )
 
     # nb of associations bouquet <-> dataset from universe
     nb_datasets_bouquets = app.session.query(DatasetBouquet).count()
-    add_metric(app.session, "nb_datasets_from_universe_in_bouquets", nb_datasets_bouquets)
+    add_metric(
+        app.session,
+        "nb_datasets_from_universe_in_bouquets",
+        nb_datasets_bouquets,
+        organization=None,
+    )
 
     bouquets = app.session.query(Bouquet)
     add_metric(
-        app.session, "nb_bouquets_public", bouquets.filter_by(deleted=False, private=False).count()
+        app.session,
+        "nb_bouquets_public",
+        bouquets.filter_by(deleted=False, private=False).count(),
+        organization=None,
     )
     # nb_datasets_in_bouquets
     add_metric(
         app.session,
         "nb_datasets_in_bouquets_public",
         sum(b.nb_datasets for b in bouquets.filter_by(deleted=False, private=False)),
+        organization=None,
     )
     # nb_datasets_external_in_bouquets
     add_metric(
         app.session,
         "nb_datasets_external_in_bouquets_public",
         sum(b.nb_datasets_external for b in bouquets.filter_by(deleted=False, private=False)),
+        organization=None,
     )
     # nb_factors_in_bouquets
     add_metric(
         app.session,
         "nb_factors_in_bouquets_public",
         sum(b.nb_factors for b in bouquets.filter_by(deleted=False, private=False)),
+        organization=None,
     )
     # nb_factors_missing_in_bouquets
     add_metric(
         app.session,
         "nb_factors_missing_in_bouquets_public",
         sum(b.nb_factors_missing for b in bouquets.filter_by(deleted=False, private=False)),
+        organization=None,
     )
     # nb_factors_not_available_in_bouquets
     add_metric(
         app.session,
         "nb_factors_not_available_in_bouquets_public",
         sum(b.nb_factors_not_available for b in bouquets.filter_by(deleted=False, private=False)),
+        organization=None,
     )
 
 
