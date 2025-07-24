@@ -369,7 +369,7 @@ def compute_metrics(env: str = "demo"):
             agg[measurement] += value
 
     for agg_key, agg_value in agg.items():
-        add_metric(app.session, agg_key, agg_value)
+        add_metric(app.session, agg_key, agg_value, organization=None)
 
     # global average quality score
     add_metric(app.session, "avg_quality__score", compute_quality_score(app.session))
