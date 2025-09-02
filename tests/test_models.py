@@ -588,6 +588,15 @@ def test_bouquet_factors(fixture_payload, mock_requests):
         make_factor(availability="url available", uri="https://example.com/dataset/", element=None),
         make_factor(availability="missing", uri=None, element=None),
         make_factor(availability="not available", uri=None, element=None),
+        # not a factor
+        make_factor(
+            availability="available",
+            element={
+                "class": "Reuse",
+                "id": "xxx",
+            },
+            uri="https://example.com/dataset/",
+        ),
     ]
     mock_requests.get(
         "https://example.com/elements/",
@@ -599,7 +608,7 @@ def test_bouquet_factors(fixture_payload, mock_requests):
         },
     )
     bouquet = Bouquet.from_payload(fixture_payload, {})
-    assert bouquet.nb_factors == len(factors)
+    assert bouquet.nb_factors == 4
     assert bouquet.nb_datasets == 1
     assert bouquet.nb_datasets_external == 1
     assert bouquet.nb_factors_missing == 1

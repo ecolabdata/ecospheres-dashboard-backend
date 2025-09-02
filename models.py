@@ -501,7 +501,9 @@ class Bouquet(Base):
 
         factors = list(iter_rel(data.pop("elements"), quiet=True))
         data["_factors"] = factors
-        data["nb_datasets"] = len([f for f in factors if f.get("element")])
+        data["nb_datasets"] = len(
+            [f for f in factors if f.get("element") and f["element"]["class"] == "Dataset"]
+        )
         data["nb_datasets_external"] = len(
             [
                 f
@@ -509,7 +511,6 @@ class Bouquet(Base):
                 if f["extras"].get("ecospheres", {}).get("uri") and not f.get("element")
             ]
         )
-        data["nb_factors"] = len(factors)
         data["nb_factors_missing"] = len(
             [
                 f
@@ -523,6 +524,12 @@ class Bouquet(Base):
                 for f in factors
                 if f["extras"].get("ecospheres", {}).get("availability") == "not available"
             ]
+        )
+        data["nb_factors"] = (
+            data["nb_datasets"]
+            + data["nb_datasets_external"]
+            + data["nb_factors_missing"]
+            + data["nb_factors_not_available"]
         )
 
         return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
