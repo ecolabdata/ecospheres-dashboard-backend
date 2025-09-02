@@ -3,3 +3,4 @@ pytest
 pre-commit
 ruff
 pyright
+requests-mock
