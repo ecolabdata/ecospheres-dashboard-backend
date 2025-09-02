@@ -234,14 +234,14 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
         app.session.commit()
 
 
-def process_element(env: str, element: dict, licenses: list, skip_related: bool) -> None:
-    """Process a single element (dataset) and its resources"""
-    if element.get("element", {}).get("class") != "Dataset":
-        print(f"Skipping element {element['id']} (not a dataset).")
+def process_factor(env: str, factor: dict, licenses: list, skip_related: bool) -> None:
+    """Process a single factor (dataset) and its resources"""
+    if factor.get("element", {}).get("class") != "Dataset":
+        print(f"Skipping factor {factor['id']} (not a dataset).")
         return
     base_url = get_config_value(env, "base_url")
     try:
-        r = requests.get(f"{base_url}/api/2/datasets/{element['element']['id']}/")
+        r = requests.get(f"{base_url}/api/2/datasets/{factor['element']['id']}/")
         r.raise_for_status()
         dataset_payload = r.json()
         if organization_id := (dataset_payload.get("organization") or {}).get("id"):
@@ -302,15 +302,15 @@ def load(
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         tasks = []
 
-        for element in iter_rel(topic["elements"], page_size=200):
+        for factor in iter_rel(topic["elements"], page_size=200):
             future = executor.submit(
-                process_element,
+                process_factor,
                 env,
-                element,
+                factor,
                 licenses,
                 skip_related=skip_related,
             )
-            tasks.append(Task(future, element))
+            tasks.append(Task(future, factor))
 
         for task in tasks:
             try:

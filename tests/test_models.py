@@ -543,9 +543,65 @@ def test_resource_available(payload, expected):
 @pytest.mark.parametrize(
     "fixture_payload", ["bouquet_payload_ok.json"], indirect=["fixture_payload"]
 )
-def test_bouquet_theme(fixture_payload):
+def test_bouquet_theme(fixture_payload, mock_requests):
+    mock_requests.get(
+        "https://example.com/elements/",
+        json={
+            "total": 0,
+            "page_size": 10,
+            "next_page": None,
+            "data": [],
+        },
+    )
     bouquet = Bouquet.from_payload(
         fixture_payload,
         themes={"ecospheres-theme-mieux-se-deplacer": "Mieux se déplacer"},
     )
     assert bouquet.theme == "Mieux se déplacer"
+
+
+def make_factor(availability: str, uri: str | None, element: dict | None):
+    return {
+        "element": element,
+        "extras": {
+            "ecospheres": {
+                "availability": availability,
+                "uri": uri,
+            }
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "fixture_payload", ["bouquet_payload_ok.json"], indirect=["fixture_payload"]
+)
+def test_bouquet_factors(fixture_payload, mock_requests):
+    factors = [
+        make_factor(
+            availability="available",
+            element={
+                "class": "Dataset",
+                "id": "xxx",
+            },
+            uri="https://example.com/dataset/",
+        ),
+        make_factor(availability="url available", uri="https://example.com/dataset/", element=None),
+        make_factor(availability="missing", uri=None, element=None),
+        make_factor(availability="not available", uri=None, element=None),
+    ]
+    mock_requests.get(
+        "https://example.com/elements/",
+        json={
+            "total": 1,
+            "page_size": 10,
+            "next_page": None,
+            "data": factors,
+        },
+    )
+    bouquet = Bouquet.from_payload(fixture_payload, {})
+    assert bouquet.nb_factors == len(factors)
+    assert bouquet.nb_datasets == 1
+    assert bouquet.nb_datasets_external == 1
+    assert bouquet.nb_factors_missing == 1
+    assert bouquet.nb_factors_not_available == 1
+    assert bouquet._factors == factors

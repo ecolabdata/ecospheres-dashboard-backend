@@ -459,7 +459,7 @@ class Bouquet(Base):
     __tablename__ = "bouquets"
 
     # "internal" variable, not stored in database
-    _elements: list = []
+    _factors: list = []
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     bouquet_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
@@ -499,29 +499,29 @@ class Bouquet(Base):
         data["owner"] = data["owner"]["id"] if data["owner"] else None
         data["theme"] = next((themes[tid] for tid in themes if tid in data["tags"]), None)
 
-        elements = list(iter_rel(data.pop("elements"), quiet=True))
-        data["_elements"] = elements
-        data["nb_datasets"] = len([elt for elt in elements if elt.get("element")])
+        factors = list(iter_rel(data.pop("elements"), quiet=True))
+        data["_factors"] = factors
+        data["nb_datasets"] = len([f for f in factors if f.get("element")])
         data["nb_datasets_external"] = len(
             [
-                elt
-                for elt in elements
-                if elt["extras"].get("ecospheres", {}).get("uri") and not elt.get("element")
+                f
+                for f in factors
+                if f["extras"].get("ecospheres", {}).get("uri") and not f.get("element")
             ]
         )
-        data["nb_factors"] = len(elements)
+        data["nb_factors"] = len(factors)
         data["nb_factors_missing"] = len(
             [
-                elt
-                for elt in elements
-                if elt["extras"].get("ecospheres", {}).get("availability") == "missing"
+                f
+                for f in factors
+                if f["extras"].get("ecospheres", {}).get("availability") == "missing"
             ]
         )
         data["nb_factors_not_available"] = len(
             [
-                elt
-                for elt in elements
-                if elt["extras"].get("ecospheres", {}).get("availability") == "not available"
+                f
+                for f in factors
+                if f["extras"].get("ecospheres", {}).get("availability") == "not available"
             ]
         )
 
@@ -529,7 +529,7 @@ class Bouquet(Base):
 
     @property
     def elements_ids(self) -> list[str]:
-        return [elt["element"]["id"] for elt in self._elements if elt.get("element")]
+        return [elt["element"]["id"] for elt in self._factors if elt.get("element")]
 
 
 class DatasetBouquet(Base):

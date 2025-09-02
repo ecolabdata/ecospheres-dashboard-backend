@@ -10,9 +10,9 @@
     ],
     "elements": {
         "rel": "subsection",
-        "href": null,
+        "href": "https://example.com/elements/",
         "type": "GET",
-        "total": 0
+        "total": 5
     },
     "featured": false,
     "private": false,

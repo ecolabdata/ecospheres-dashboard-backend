@@ -1,16 +1,7 @@
 from datetime import date
 from unittest.mock import patch
 
-import pytest
-import requests_mock
-
 from metrics import compute_quality_score, get_datagouvfr_metrics, quality_score_query
-
-
-@pytest.fixture
-def mock_requests():
-    with requests_mock.Mocker() as m:
-        yield m
 
 
 def test_compute_quality_score():
