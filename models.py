@@ -527,6 +527,10 @@ class Bouquet(Base):
 
         return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
 
+    @property
+    def elements_ids(self) -> list[str]:
+        return [elt["element"]["id"] for elt in self._elements if elt.get("element")]
+
 
 class DatasetBouquet(Base):
     __tablename__ = "datasets_bouquets"

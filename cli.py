@@ -227,7 +227,7 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
         existing = app.session.query(Bouquet).filter_by(bouquet_id=bouquet["id"]).first()
         bouquet_obj = Bouquet.from_payload(bouquet, themes)
         bouquet_obj_in_db = upsert(app.session, bouquet_obj, existing)
-        for elt_id in [elt["element"]["id"] for elt in bouquet_obj._elements if elt.get("element")]:
+        for elt_id in bouquet_obj.elements_ids:
             dataset_obj = app.session.query(Dataset).filter_by(dataset_id=elt_id).first()
             if dataset_obj:
                 bouquet_obj_in_db.datasets.append(dataset_obj)
