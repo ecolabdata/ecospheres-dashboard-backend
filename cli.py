@@ -236,7 +236,7 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
 
 def process_element(env: str, element: dict, licenses: list, skip_related: bool) -> None:
     """Process a single element (dataset) and its resources"""
-    if not element.get("element", {}).get("class") == "Dataset":
+    if element.get("element", {}).get("class") != "Dataset":
         print(f"Skipping element {element['id']} (not a dataset).")
         return
     base_url = get_config_value(env, "base_url")
