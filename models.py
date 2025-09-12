@@ -9,6 +9,7 @@ from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from rel import iter_rel
 from utils import (
     DEFAULT_EXCLUDE,
     DEFAULT_JSON_EXCLUDE,
@@ -69,9 +70,9 @@ class DatasetComputedColumns:
             label = f"au moins {v}" if bounds.open else f"{v}"
         return Bin(bin, label)
 
-    def __init__(self, payload: dict, prefix: str, licenses: list = []) -> None:
+    def __init__(self, payload: dict, base_url: str, licenses: list = []) -> None:
         self.payload = payload
-        self.prefix = prefix
+        self.base_url = base_url
         self.licenses = licenses
 
     def get_attr_by_path(self, path: str, sep: str = "__"):
@@ -114,7 +115,7 @@ class DatasetComputedColumns:
         return self.MISSING_PREFIX_MESSAGE
 
     def get_url_data_gouv(self) -> str:
-        url = f"https://{self.prefix}.data.gouv.fr/fr/datasets/"
+        url = f"{self.base_url}/fr/datasets/"
         id = self.payload["dataset_id"]
         return f'<a href="{url}{id}" target="_blank">{id}</a>'
 
@@ -291,7 +292,7 @@ class Dataset(Base):
         return f"<Dataset {self.dataset_id}>"
 
     @classmethod
-    def from_payload(cls, payload: dict, prefix: str, licenses: list) -> "Dataset":
+    def from_payload(cls, payload: dict, base_url: str, licenses: list) -> "Dataset":
         """Build a Dataset instance from an API payload"""
         data = payload.copy()
         data["deleted"] = False
@@ -303,7 +304,7 @@ class Dataset(Base):
         data["organization"] = data["organization"]["id"] if data["organization"] else None
         data["owner"] = data["owner"]["id"] if data["owner"] else None
 
-        computer = DatasetComputedColumns(data, prefix, licenses)
+        computer = DatasetComputedColumns(data, base_url, licenses)
 
         computed_columns = computer.get_computed_columns()
         indicators = computer.get_indicators()
@@ -457,6 +458,9 @@ class Organization(Base):
 class Bouquet(Base):
     __tablename__ = "bouquets"
 
+    # "internal" variable, not stored in database
+    _factors: list = []
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     bouquet_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     name: Mapped[str]
@@ -490,26 +494,49 @@ class Bouquet(Base):
         data = payload.copy()
         data["deleted"] = False
 
-        data.pop("datasets")
         data["bouquet_id"] = data.pop("id")
         data["organization"] = data["organization"]["id"] if data["organization"] else None
         data["owner"] = data["owner"]["id"] if data["owner"] else None
         data["theme"] = next((themes[tid] for tid in themes if tid in data["tags"]), None)
 
-        datasets_properties = data["extras"]["ecospheres"]["datasets_properties"]
-        data["nb_datasets"] = len([d for d in datasets_properties if d.get("id")])
-        data["nb_datasets_external"] = len(
-            [d for d in datasets_properties if d.get("uri") and not d.get("id")]
+        factors = list(iter_rel(data.pop("elements"), quiet=True))
+        data["_factors"] = factors
+        data["nb_datasets"] = len(
+            [f for f in factors if f.get("element") and f["element"]["class"] == "Dataset"]
         )
-        data["nb_factors"] = len(datasets_properties)
+        data["nb_datasets_external"] = len(
+            [
+                f
+                for f in factors
+                if f["extras"].get("ecospheres", {}).get("uri") and not f.get("element")
+            ]
+        )
         data["nb_factors_missing"] = len(
-            [d for d in datasets_properties if d.get("availability") == "missing"]
+            [
+                f
+                for f in factors
+                if f["extras"].get("ecospheres", {}).get("availability") == "missing"
+            ]
         )
         data["nb_factors_not_available"] = len(
-            [d for d in datasets_properties if d.get("availability") == "not available"]
+            [
+                f
+                for f in factors
+                if f["extras"].get("ecospheres", {}).get("availability") == "not available"
+            ]
+        )
+        data["nb_factors"] = (
+            data["nb_datasets"]
+            + data["nb_datasets_external"]
+            + data["nb_factors_missing"]
+            + data["nb_factors_not_available"]
         )
 
         return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
+
+    @property
+    def elements_ids(self) -> list[str]:
+        return [elt["element"]["id"] for elt in self._factors if elt.get("element")]
 
 
 class DatasetBouquet(Base):

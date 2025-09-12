@@ -8,17 +8,11 @@
         "ecospheres-theme-mieux-se-deplacer",
         "univers-ecospheres"
     ],
-    "datasets": {
+    "elements": {
         "rel": "subsection",
-        "href": "https://www.data.gouv.fr/api/2/topics/682d942102634f7cc798472e/datasets/?page=1&page_size=20",
+        "href": "https://example.com/elements/",
         "type": "GET",
-        "total": 6
-    },
-    "reuses": {
-        "rel": "subsection",
-        "href": "https://www.data.gouv.fr/api/2/topics/682d942102634f7cc798472e/reuses/?page=1&page_size=20",
-        "type": "GET",
-        "total": 0
+        "total": 5
     },
     "featured": false,
     "private": false,
