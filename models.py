@@ -49,6 +49,7 @@ class DatasetComputedColumns:
         {"field": "license", "exclude": DEFAULT_STRING_EXCLUDE + ("notspecified",)},
         {"field": "harvest", "exclude": DEFAULT_JSON_EXCLUDE},
         {"field": "harvest__created_at", "exclude": DEFAULT_EXCLUDE},
+        {"field": "harvest__issued_at", "exclude": DEFAULT_EXCLUDE},
         {"field": "harvest__modified_at", "exclude": DEFAULT_EXCLUDE},
         {"field": "harvest__remote_id", "exclude": DEFAULT_STRING_EXCLUDE},
         {"field": "harvest__remote_url", "exclude": DEFAULT_STRING_EXCLUDE},
@@ -186,6 +187,7 @@ class DatasetComputedColumns:
             "prefix_harvest_remote_url": self.get_prefix_or_fallback_from("remote_url"),
             "url_data_gouv": self.get_url_data_gouv(),
             "harvest__created_at__year": self.get_year_from_harvest_date("created_at"),
+            "harvest__issued_at__year": self.get_year_from_harvest_date("issued_at"),
             "harvest__modified_at__year": self.get_year_from_harvest_date("modified_at"),
             "consistent_dates": self.get_consistent_dates(),
             "consistent_temporal_coverage": self.get_consistent_temporal_coverage(),
@@ -239,6 +241,8 @@ class Dataset(Base):
     harvest__created_at__year: Mapped[int | None]
     harvest__dct_identifier: Mapped[Optional[str]]
     harvest__domain: Mapped[Optional[str]]
+    harvest__issued_at: Mapped[Optional[datetime]]
+    harvest__issued_at__year: Mapped[int | None]
     harvest__last_update: Mapped[Optional[datetime]]
     harvest__modified_at: Mapped[Optional[datetime]]
     harvest__modified_at__year: Mapped[int | None]
@@ -251,6 +255,7 @@ class Dataset(Base):
     has_license: Mapped[bool]
     has_harvest: Mapped[bool]
     has_harvest__created_at: Mapped[bool]
+    has_harvest__issued_at: Mapped[bool]
     has_harvest__modified_at: Mapped[bool]
     has_harvest__remote_id: Mapped[bool]
     has_harvest__remote_url: Mapped[bool]

@@ -65,6 +65,7 @@
   "harvest": {
     "backend": "CSW-DCAT",
     "created_at": "2013-02-16T00:00:00+00:00",
+    "issued_at": "2013-02-17T00:00:00+00:00",
     "source_id": "65390755494c3b6fb40892ec",
     "remote_id": "4b112795-181a-4af5-9f66-c0837f50cbfa",
     "domain": "catalogue.geo-ide.developpement-durable.gouv.fr",

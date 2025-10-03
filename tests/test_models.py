@@ -198,14 +198,16 @@ def test_computed_get_year_from_harvest_date():
     base = DatasetComputedColumns(
         {
             "harvest": {
-                "created_at": "2024-07-03T22:30:34.295000+00:00",
+                "created_at": "2023-07-03T22:30:34.295000+00:00",
+                "issued_at": "2024-07-03T22:30:34.295000+00:00",
                 "modified_at": "2025-07-09T04:48:40.999000+00:00",
             }
         },
         base_url="http://example.com",
     )
 
-    assert base.get_year_from_harvest_date("created_at") == 2024
+    assert base.get_year_from_harvest_date("created_at") == 2023
+    assert base.get_year_from_harvest_date("issued_at") == 2024
     assert base.get_year_from_harvest_date("modified_at") == 2025
 
 
@@ -213,6 +215,7 @@ def test_computed_get_year_from_harvest_missing():
     base = DatasetComputedColumns({"harvest": {}}, base_url="http://example.com")
 
     assert base.get_year_from_harvest_date("created_at") is None
+    assert base.get_year_from_harvest_date("issued_at") is None
     assert base.get_year_from_harvest_date("modified_at") is None
 
 
@@ -391,6 +394,7 @@ def test_computed_harvest_spread(fixture_payload):
         "harvest__created_at": "2013-02-16T00:00:00+00:00",
         "harvest__dct_identifier": "4b112795-181a-4af5-9f66-c0837f50cbfa",
         "harvest__domain": "catalogue.geo-ide.developpement-durable.gouv.fr",
+        "harvest__issued_at": "2013-02-17T00:00:00+00:00",
         "harvest__last_update": "2024-05-24T02:52:01.047000+00:00",
         # no modified_at
         "harvest__remote_id": "4b112795-181a-4af5-9f66-c0837f50cbfa",
