@@ -236,7 +236,7 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
 
 def process_factor(env: str, factor: dict, licenses: list, skip_related: bool) -> None:
     """Process a single factor (dataset) and its resources"""
-    if factor.get("element", {}).get("class") != "Dataset":
+    if (factor.get("element") or {}).get("class") != "Dataset":
         print(f"Skipping factor {factor['id']} (not a dataset).")
         return
     base_url = get_config_value(env, "base_url")
