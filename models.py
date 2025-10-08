@@ -6,7 +6,7 @@ from textwrap import shorten
 from typing import List, NamedTuple, Optional
 
 from sqlalchemy import ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from rel import iter_rel
@@ -234,6 +234,7 @@ class Dataset(Base):
     license__title: Mapped[Optional[str]]
     quality: Mapped[dict] = mapped_column(JSONB)
     internal: Mapped[dict] = mapped_column(JSONB)
+    tags: Mapped[list[str]] = mapped_column(ARRAY(String))
 
     # harvest info columns
     harvest__backend: Mapped[Optional[str]]
