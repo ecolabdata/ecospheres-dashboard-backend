@@ -201,9 +201,9 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
     # build a pallatable list of themes from remote config
     page_config = get_front_config(env)["pages"]["bouquets"]
     raw_themes = next((f for f in page_config["filters"] if f["id"] == "theme"), {"values": []})
-    themes = {
-        f"{page_config['tag_prefix']}-theme-{t['id']}": t["name"] for t in raw_themes["values"]
-    }
+    # FIXME: `page_prefix` for retrocompatibility
+    filter_prefix = page_config.get("filter_prefix") or page_config.get("tag_prefix")
+    themes = {f"{filter_prefix}-theme-{t['id']}": t["name"] for t in raw_themes["values"]}
 
     app.session.execute(text("DELETE FROM datasets_bouquets"))
     app.session.commit()
