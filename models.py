@@ -586,6 +586,7 @@ class Stats(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     date: Mapped[date]
+    segment: Mapped[Optional[str]]
     # those attributes are directly mapped to matomo
     nb_uniq_visitors: Mapped[int]
     nb_visits: Mapped[int]
