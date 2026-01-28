@@ -470,7 +470,7 @@ def load_stats(
         print("Skipping stats loading: missing config value(s)")
         return
 
-    for segment in set([None, *segments]):
+    for segment in {None, *segments}:
         print(f"Loading stats for {f'segment {segment}' if segment else 'all segments'}...")
         segment_args = (
             {"segment": urllib_parse.quote(f"pageUrl=@https://ecologie.data.gouv.fr{segment}")}
