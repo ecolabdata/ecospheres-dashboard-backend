@@ -6,6 +6,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import date, timedelta
 from threading import Lock
 from typing import Callable, NamedTuple
+from urllib import parse as urllib_parse
 
 import requests
 import sentry_sdk
@@ -449,7 +450,11 @@ def load_stats_history(env: str = "demo", since: str = "2024-04-02"):
 
 
 @cli
-def load_stats(env: str = "demo", day: str | None = None):
+def load_stats(
+    env: str = "demo",
+    day: str | None = None,
+    segments: list[str] = ["/indicators", "/bouquets", "/dataservices", "/datasets"],
+):
     """
     Upsert the stats table from Matomo
     """
@@ -465,40 +470,50 @@ def load_stats(env: str = "demo", day: str | None = None):
         print("Skipping stats loading: missing config value(s)")
         return
 
-    common_args = {
-        "module": "API",
-        "idSite": stats_site_id,
-        "token_auth": stats_token,
-        "period": "day",
-        "date": parsed_day.isoformat(),
-        "format": "JSON",
-    }
-
-    def fetch(method: str) -> dict:
-        r = requests.post(
-            stats_url,
-            data={
-                **common_args,
-                "method": method,
-            },
+    for segment in {None, *segments}:
+        print(f"Loading stats for {f'segment {segment}' if segment else 'all segments'}...")
+        segment_args = (
+            {"segment": urllib_parse.quote(f"pageUrl=@https://ecologie.data.gouv.fr{segment}")}
+            if segment
+            else {}
         )
-        r.raise_for_status()
-        return r.json()
 
-    data = {}
-    methods = ["VisitsSummary.get", "Actions.get", "VisitFrequency.get"]
-    for method in methods:
-        data |= fetch(method)
+        common_args = {
+            "module": "API",
+            "idSite": stats_site_id,
+            "token_auth": stats_token,
+            "period": "day",
+            "date": parsed_day.isoformat(),
+            "format": "JSON",
+            **segment_args,
+        }
 
-    columns = [column.key for column in inspect(Stats).attrs if column.key != "id"]
-    db_data = {k: v for k, v in data.items() if k in columns}
-    db_data["date"] = parsed_day
-    if "bounce_rate" in db_data:
-        # 39% -> 0.39
-        db_data["bounce_rate"] = float(db_data["bounce_rate"].rstrip("%")) / 100
+        def fetch(method: str) -> dict:
+            r = requests.post(
+                stats_url,
+                data={
+                    **common_args,
+                    "method": method,
+                },
+            )
+            r.raise_for_status()
+            return r.json()
 
-    existing = app.session.query(Stats).filter_by(date=parsed_day).first()
-    upsert(app.session, Stats(**db_data), existing)
+        data = {}
+        methods = ["VisitsSummary.get", "Actions.get", "VisitFrequency.get"]
+        for method in methods:
+            data |= fetch(method)
+
+        columns = [column.key for column in inspect(Stats).attrs if column.key != "id"]
+        db_data = {k: v for k, v in data.items() if k in columns}
+        db_data["date"] = parsed_day
+        db_data["segment"] = segment
+        if "bounce_rate" in db_data:
+            # 39% -> 0.39
+            db_data["bounce_rate"] = float(db_data["bounce_rate"].rstrip("%")) / 100
+
+        existing = app.session.query(Stats).filter_by(date=parsed_day, segment=segment).first()
+        upsert(app.session, Stats(**db_data), existing)
 
 
 @cli
