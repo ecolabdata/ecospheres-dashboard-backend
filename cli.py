@@ -243,7 +243,13 @@ def process_factor(env: str, factor: dict, licenses: list, skip_related: bool) -
     base_url = get_config_value(env, "base_url")
     try:
         r = requests.get(f"{base_url}/api/2/datasets/{factor['element']['id']}/")
-        r.raise_for_status()
+        if r.status_code == 404:
+            print(
+                f"⚠️ Dataset {factor['element']['id']} deleted or private for factor {factor['id']}."
+            )
+            return
+        elif not r.ok:
+            r.raise_for_status()
         dataset_payload = r.json()
         if organization_id := (dataset_payload.get("organization") or {}).get("id"):
             load_organization(env, organization_id)
