@@ -237,20 +237,22 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
 
 def process_factor(env: str, factor: dict, licenses: list, skip_related: bool) -> None:
     """Process a single factor (dataset) and its resources"""
+    api_key = get_config_value(env, "api_key")
     if (factor.get("element") or {}).get("class") != "Dataset":
         print(f"Skipping factor {factor['id']} (not a dataset).")
         return
     base_url = get_config_value(env, "base_url")
     try:
-        r = requests.get(f"{base_url}/api/2/datasets/{factor['element']['id']}/")
-        if r.status_code == 404:
+        r = requests.get(
+            f"{base_url}/api/2/datasets/{factor['element']['id']}/", headers={"x-api-key": api_key}
+        )
+        r.raise_for_status()
+        dataset_payload = r.json()
+        if dataset_payload.get("private"):
             print(
-                f"⚠️ Dataset {factor['element']['id']} deleted or private for factor {factor['id']}."
+                f"⚠️ Dataset {factor['element']['id']} for factor {factor['id']} is private, ignoring."
             )
             return
-        elif not r.ok:
-            r.raise_for_status()
-        dataset_payload = r.json()
         if organization_id := (dataset_payload.get("organization") or {}).get("id"):
             load_organization(env, organization_id)
         dataset_obj = Dataset.from_payload(dataset_payload, base_url, licenses)
