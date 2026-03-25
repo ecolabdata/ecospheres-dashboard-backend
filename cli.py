@@ -8,10 +8,11 @@ from threading import Lock
 from typing import Callable, NamedTuple
 from urllib import parse as urllib_parse
 
-import requests
 import sentry_sdk
 from minicli import cli, run, wrap
 from progressist import ProgressBar
+from requests.adapters import HTTPAdapter, Retry
+from requests.sessions import Session
 from sqlalchemy import Select, and_, create_engine, func, inspect, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
 
@@ -44,7 +45,8 @@ class Task(NamedTuple):
 
 
 class App:
-    session: scoped_session
+    db: scoped_session
+    req: Session
     org_lock: Lock
 
     def __init__(self):
@@ -55,7 +57,7 @@ app = App()
 
 
 def load_es_universe_organizations(env: str) -> list[EcospheresUniverseOrganization]:
-    r = requests.get(get_config_value(env, "org_api"))
+    r = app.req.get(get_config_value(env, "org_api"))
     r.raise_for_status()
     return [EcospheresUniverseOrganization.from_payload(o) for o in r.json()]
 
@@ -64,11 +66,9 @@ def load_organization(env: str, organization_id: str, refresh: bool = False) -> 
     base_url = get_config_value(env, "base_url")
     url = f"{base_url}/api/1/organizations/{organization_id}/"
     with app.org_lock:
-        organization = (
-            app.session.query(Organization).filter_by(organization_id=organization_id).first()
-        )
+        organization = app.db.query(Organization).filter_by(organization_id=organization_id).first()
         if not organization or refresh:
-            r = requests.get(url)
+            r = app.req.get(url)
             if not r.ok:
                 if r.status_code == 410 or r.status_code == 404:
                     # TODO: delete from db?
@@ -77,16 +77,16 @@ def load_organization(env: str, organization_id: str, refresh: bool = False) -> 
                 else:
                     r.raise_for_status()
             org_db = Organization.from_payload(r.json())
-            organization = upsert(app.session, org_db, organization)
+            organization = upsert(app.db, org_db, organization)
         return organization
 
 
 def _load_datagouvfr_metrics_batch(
     url: str, query: Select, id_field: str, update_fn: Callable, batch_size: int = 50
 ):
-    total = app.session.scalar(select(func.count("*")).select_from(query.subquery()))
+    total = app.db.scalar(select(func.count("*")).select_from(query.subquery()))
     bar = ProgressBar(total=total)
-    result = app.session.execute(query).yield_per(batch_size)
+    result = app.db.execute(query).yield_per(batch_size)
     for batch in result.partitions():
         items = [row[0] for row in batch]
         metrics = get_datagouvfr_metrics(
@@ -104,11 +104,11 @@ def _load_datagouvfr_metrics_batch(
             if not metrics_data:
                 continue
             update_fn(item, metrics_data)
-            app.session.add(item)
+            app.db.add(item)
         try:
-            app.session.commit()
+            app.db.commit()
         except Exception as e:
-            app.session.rollback()
+            app.db.rollback()
             print(f"Error updating batch: {e}")
 
 
@@ -125,7 +125,7 @@ def load_datagouvfr_metrics(env: str = "demo"):
     def handle_dataset(dataset: Dataset, metrics_data: dict):
         if monthly_visit := metrics_data.get("monthly_visit"):
             add_metric(
-                app.session,
+                app.db,
                 "nb_visits_last_month",
                 monthly_visit,
                 at=at,
@@ -134,7 +134,7 @@ def load_datagouvfr_metrics(env: str = "demo"):
             )
         if monthly_download_resource := metrics_data.get("monthly_download_resource"):
             add_metric(
-                app.session,
+                app.db,
                 "nb_downloads_resources_last_month",
                 monthly_download_resource,
                 at=at,
@@ -145,7 +145,7 @@ def load_datagouvfr_metrics(env: str = "demo"):
     def handle_organization(org: Organization, metrics_data: dict):
         if monthly_visit_dataset := metrics_data.get("monthly_visit_dataset"):
             add_metric(
-                app.session,
+                app.db,
                 "nb_visits_datasets_last_month",
                 monthly_visit_dataset,
                 at=at,
@@ -153,7 +153,7 @@ def load_datagouvfr_metrics(env: str = "demo"):
             )
         if monthly_download_resource := metrics_data.get("monthly_download_resource"):
             add_metric(
-                app.session,
+                app.db,
                 "nb_downloads_resources_last_month",
                 monthly_download_resource,
                 at=at,
@@ -177,7 +177,7 @@ def load_datagouvfr_metrics(env: str = "demo"):
 def update_organizations(env: str = "demo"):
     """Refresh and complement organizations"""
     print("Updating organizations...")
-    organizations = app.session.query(Organization).all()
+    organizations = app.db.query(Organization).all()
     custom_organizations = load_es_universe_organizations(env)
     for organization in organizations:
         fresh_organization = load_organization(env, organization.organization_id, refresh=True)
@@ -188,10 +188,10 @@ def update_organizations(env: str = "demo"):
         )
         if custom_organization:
             fresh_organization.type = custom_organization.type
-            app.session.add(fresh_organization)
+            app.db.add(fresh_organization)
         else:
             print("Skipping organization", fresh_organization.organization_id)
-    app.session.commit()
+    app.db.commit()
 
 
 @cli
@@ -200,19 +200,19 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
     api_key = get_config_value(env, "api_key")
 
     # build a pallatable list of themes from remote config
-    page_config = get_front_config(env)["pages"]["bouquets"]
+    page_config = get_front_config(env, session=app.req)["pages"]["bouquets"]
     raw_themes = next((f for f in page_config["filters"] if f["id"] == "theme"), {"values": []})
     # FIXME: `page_prefix` for retrocompatibility
     filter_prefix = page_config.get("filter_prefix") or page_config.get("tag_prefix")
     themes = {f"{filter_prefix}-theme-{t['id']}": t["name"] for t in raw_themes["values"]}
 
-    app.session.execute(text("DELETE FROM datasets_bouquets"))
-    app.session.commit()
+    app.db.execute(text("DELETE FROM datasets_bouquets"))
+    app.db.commit()
 
     # pre-set deleted, will be overwritten by actual upsert
     stmt = update(Bouquet).values(deleted=True)
-    app.session.execute(stmt)
-    app.session.commit()
+    app.db.execute(stmt)
+    app.db.commit()
 
     universe_name = get_config_value(env, "universe_name")
     url = f"{base_url}/api/2/topics/?tag={universe_name}"
@@ -220,19 +220,18 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
         url = f"{url}&include_private=yes"
 
     for bouquet in iter_rel(
-        {
-            "href": url,
-        },
+        {"href": url},
         headers={"X-API-KEY": api_key},
+        session=app.req,
     ):
-        existing = app.session.query(Bouquet).filter_by(bouquet_id=bouquet["id"]).first()
+        existing = app.db.query(Bouquet).filter_by(bouquet_id=bouquet["id"]).first()
         bouquet_obj = Bouquet.from_payload(bouquet, themes)
-        bouquet_obj_in_db = upsert(app.session, bouquet_obj, existing)
+        bouquet_obj_in_db = upsert(app.db, bouquet_obj, existing)
         for elt_id in bouquet_obj.elements_ids:
-            dataset_obj = app.session.query(Dataset).filter_by(dataset_id=elt_id).first()
+            dataset_obj = app.db.query(Dataset).filter_by(dataset_id=elt_id).first()
             if dataset_obj:
                 bouquet_obj_in_db.datasets.append(dataset_obj)
-        app.session.commit()
+        app.db.commit()
 
 
 def process_factor(env: str, factor: dict, licenses: list, skip_related: bool) -> None:
@@ -243,7 +242,7 @@ def process_factor(env: str, factor: dict, licenses: list, skip_related: bool) -
         return
     base_url = get_config_value(env, "base_url")
     try:
-        r = requests.get(
+        r = app.req.get(
             f"{base_url}/api/2/datasets/{factor['element']['id']}/", headers={"x-api-key": api_key}
         )
         r.raise_for_status()
@@ -256,15 +255,15 @@ def process_factor(env: str, factor: dict, licenses: list, skip_related: bool) -
         if organization_id := (dataset_payload.get("organization") or {}).get("id"):
             load_organization(env, organization_id)
         dataset_obj = Dataset.from_payload(dataset_payload, base_url, licenses)
-        existing = app.session.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
-        upsert(app.session, dataset_obj, existing)
+        existing = app.db.query(Dataset).filter_by(dataset_id=dataset_obj.dataset_id).first()
+        upsert(app.db, dataset_obj, existing)
 
         if not skip_related:
-            for r in iter_rel(dataset_payload["resources"], quiet=True):
+            for r in iter_rel(dataset_payload["resources"], quiet=True, session=app.req):
                 resource_obj = Resource.from_payload(r, dataset_obj.dataset_id)
-                app.session.add(resource_obj)
+                app.db.add(resource_obj)
     except Exception as e:
-        app.session.rollback()
+        app.db.rollback()
         if sentry_dsn:
             sentry_sdk.capture_exception(e)
         raise e
@@ -290,28 +289,28 @@ def load(
     """
     base_url = get_config_value(env, "base_url")
     topic_slug = get_config_value(env, "topic_slug")
-    request_topic = requests.get(f"{base_url}/api/2/topics/{topic_slug}/")
+    request_topic = app.req.get(f"{base_url}/api/2/topics/{topic_slug}/")
     request_topic.raise_for_status()
     topic = request_topic.json()
 
-    request_licenses = requests.get(f"{base_url}/api/1/datasets/licenses/")
+    request_licenses = app.req.get(f"{base_url}/api/1/datasets/licenses/")
     request_licenses.raise_for_status()
     licenses = request_licenses.json()
 
     # pre-set deleted, will be overwritten by actual upsert
     stmt = update(Dataset).values(deleted=True)
-    app.session.execute(stmt)
-    app.session.commit()
+    app.db.execute(stmt)
+    app.db.commit()
 
     if not skip_related:
-        app.session.execute(text("DELETE FROM resources"))
-        app.session.commit()
+        app.db.execute(text("DELETE FROM resources"))
+        app.db.commit()
 
     # Create a thread pool for parallel processing
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         tasks = []
 
-        for factor in iter_rel(topic["elements"], page_size=200):
+        for factor in iter_rel(topic["elements"], page_size=200, session=app.req):
             future = executor.submit(
                 process_factor,
                 env,
@@ -354,23 +353,21 @@ def compute_metrics(env: str = "demo"):
         .distinct()
         .where(and_(~Dataset.deleted, Dataset.organization.is_not(None)))
     )
-    org_ids = app.session.execute(query).scalars().all()
-    add_metric(app.session, "nb_organizations", len(org_ids))
+    org_ids = app.db.execute(query).scalars().all()
+    add_metric(app.db, "nb_organizations", len(org_ids))
 
     agg = defaultdict(int)
 
     for org_id in org_ids:
-        nb_datasets = (
-            app.session.query(Dataset).filter_by(organization=org_id, deleted=False).count()
-        )
-        add_metric(app.session, "nb_datasets", nb_datasets, organization=org_id)
+        nb_datasets = app.db.query(Dataset).filter_by(organization=org_id, deleted=False).count()
+        add_metric(app.db, "nb_datasets", nb_datasets, organization=org_id)
         agg["nb_datasets"] += nb_datasets
 
         # average quality score per organization
         add_metric(
-            app.session,
+            app.db,
             "avg_quality__score",
-            compute_quality_score(app.session, org_id),
+            compute_quality_score(app.db, org_id),
             organization=org_id,
         )
 
@@ -382,65 +379,63 @@ def compute_metrics(env: str = "demo"):
                 "organization": org_id,
             }
             measurement = f"nb_{field}"
-            value = app.session.query(Dataset).filter_by(**query).count()
-            add_metric(app.session, measurement, value, organization=org_id)
+            value = app.db.query(Dataset).filter_by(**query).count()
+            add_metric(app.db, measurement, value, organization=org_id)
             agg[measurement] += value
 
     for agg_key, agg_value in agg.items():
-        add_metric(app.session, agg_key, agg_value, organization=None)
+        add_metric(app.db, agg_key, agg_value, organization=None)
 
     # global average quality score
-    add_metric(
-        app.session, "avg_quality__score", compute_quality_score(app.session), organization=None
-    )
+    add_metric(app.db, "avg_quality__score", compute_quality_score(app.db), organization=None)
 
     # nb of associations bouquet <-> dataset from universe
-    nb_datasets_bouquets = app.session.query(DatasetBouquet).count()
+    nb_datasets_bouquets = app.db.query(DatasetBouquet).count()
     add_metric(
-        app.session,
+        app.db,
         "nb_datasets_from_universe_in_bouquets",
         nb_datasets_bouquets,
         organization=None,
     )
 
-    bouquets = app.session.query(Bouquet)
+    bouquets = app.db.query(Bouquet)
     add_metric(
-        app.session,
+        app.db,
         "nb_bouquets_public",
         bouquets.filter_by(deleted=False, private=False).count(),
         organization=None,
     )
     # nb_datasets_in_bouquets
     add_metric(
-        app.session,
+        app.db,
         "nb_datasets_in_bouquets_public",
         sum(b.nb_datasets for b in bouquets.filter_by(deleted=False, private=False)),
         organization=None,
     )
     # nb_datasets_external_in_bouquets
     add_metric(
-        app.session,
+        app.db,
         "nb_datasets_external_in_bouquets_public",
         sum(b.nb_datasets_external for b in bouquets.filter_by(deleted=False, private=False)),
         organization=None,
     )
     # nb_factors_in_bouquets
     add_metric(
-        app.session,
+        app.db,
         "nb_factors_in_bouquets_public",
         sum(b.nb_factors for b in bouquets.filter_by(deleted=False, private=False)),
         organization=None,
     )
     # nb_factors_missing_in_bouquets
     add_metric(
-        app.session,
+        app.db,
         "nb_factors_missing_in_bouquets_public",
         sum(b.nb_factors_missing for b in bouquets.filter_by(deleted=False, private=False)),
         organization=None,
     )
     # nb_factors_not_available_in_bouquets
     add_metric(
-        app.session,
+        app.db,
         "nb_factors_not_available_in_bouquets_public",
         sum(b.nb_factors_not_available for b in bouquets.filter_by(deleted=False, private=False)),
         organization=None,
@@ -497,7 +492,7 @@ def load_stats(
         }
 
         def fetch(method: str) -> dict:
-            r = requests.post(
+            r = app.req.post(
                 stats_url,
                 data={
                     **common_args,
@@ -520,14 +515,14 @@ def load_stats(
             # 39% -> 0.39
             db_data["bounce_rate"] = float(db_data["bounce_rate"].rstrip("%")) / 100
 
-        existing = app.session.query(Stats).filter_by(date=parsed_day, segment=segment).first()
-        upsert(app.session, Stats(**db_data), existing)
+        existing = app.db.query(Stats).filter_by(date=parsed_day, segment=segment).first()
+        upsert(app.db, Stats(**db_data), existing)
 
 
 @cli
 def init_db(env: str = "demo"):
     """Create the tables in the env database from current schema"""
-    engine = app.session.get_bind()
+    engine = app.db.get_bind()
     Base.metadata.create_all(engine)
     # mark current schema as up-to-date re alembic
     os.environ["ALEMBIC_ENV"] = env
@@ -539,12 +534,26 @@ def init_db(env: str = "demo"):
 def connect(env: str):
     """Create a wrapped session for cli commands in App.session"""
     print(f"Working on env {env!r}")
+
+    app.req = Session()
+    adapter = HTTPAdapter(
+        max_retries=Retry(
+            total=5,
+            backoff_factor=1,
+            redirect=False,  # already handled by requests
+        )
+    )
+    app.req.mount("http://", adapter)
+    app.req.mount("https://", adapter)
+
     dsn = get_config_value(env, "dsn")
     engine = create_engine(dsn)
     connection = engine.connect()
-    app.session = scoped_session(sessionmaker(autoflush=True, bind=engine))
+    app.db = scoped_session(sessionmaker(autoflush=True, bind=engine))
+
     yield
-    app.session.close()
+
+    app.db.close()
     connection.close()
 
 

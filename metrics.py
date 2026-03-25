@@ -2,6 +2,7 @@ from datetime import date
 from typing import Type, TypeAlias
 
 import requests
+from requests.sessions import Session
 from sqlalchemy import text
 from sqlalchemy.orm import scoped_session
 
@@ -40,12 +41,13 @@ def compute_quality_score(session: scoped_session, organization: str | None = No
     return session.execute(text(q), kwargs).scalar()
 
 
-def get_datagouvfr_metrics(url: str, params: dict) -> list:
+def get_datagouvfr_metrics(url: str, params: dict, session: Session | None = None) -> list:
+    s = session or requests
     now = date.today()
     # metrics for last full month
     metrics_month = f"{now.year}-{str(now.month - 1).zfill(2)}"
     params["metric_month__exact"] = metrics_month
-    r = requests.get(url, params=params)
+    r = s.get(url, params=params)
     if r.ok:
         return r.json()["data"]
     return []

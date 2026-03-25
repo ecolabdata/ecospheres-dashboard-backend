@@ -2,6 +2,7 @@ import os
 from typing import Literal, TypedDict
 
 import requests
+from requests.sessions import Session
 from yaml import safe_load
 
 
@@ -70,8 +71,9 @@ def get_config_value(env: str, key: str) -> str:
     return ENVS_CONF[env][key]
 
 
-def get_front_config(env: str) -> dict:
+def get_front_config(env: str, session: Session | None = None) -> dict:
+    s = session or requests
     config_file = get_config_value(env, "front_config_file")
-    r = requests.get(config_file)
+    r = s.get(config_file)
     r.raise_for_status()
     return safe_load(r.content)
