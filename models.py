@@ -5,6 +5,7 @@ from datetime import date, datetime
 from textwrap import shorten
 from typing import List, NamedTuple, Optional
 
+from requests import Session
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -496,7 +497,9 @@ class Bouquet(Base):
         return f"<Bouquet {self.bouquet_id}>"
 
     @classmethod
-    def from_payload(cls, payload: dict, themes: dict[str, str]) -> "Bouquet":
+    def from_payload(
+        cls, payload: dict, themes: dict[str, str], session: Session | None = None
+    ) -> "Bouquet":
         data = payload.copy()
         data["deleted"] = False
 
@@ -505,7 +508,7 @@ class Bouquet(Base):
         data["owner"] = data["owner"]["id"] if data["owner"] else None
         data["theme"] = next((themes[tid] for tid in themes if tid in data["tags"]), None)
 
-        factors = list(iter_rel(data.pop("elements"), quiet=True))
+        factors = list(iter_rel(data.pop("elements"), quiet=True, session=session))
         data["_factors"] = factors
         data["nb_datasets"] = len(
             [f for f in factors if f.get("element") and f["element"]["class"] == "Dataset"]
