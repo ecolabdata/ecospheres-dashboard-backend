@@ -538,8 +538,10 @@ def connect(env: str):
     app.req = Session()
     adapter = HTTPAdapter(
         max_retries=Retry(
-            total=5,
-            backoff_factor=1,
+            total=10,
+            backoff_factor=10,
+            backoff_jitter=1,
+            backoff_max=300,
             redirect=False,  # already handled by requests
         )
     )
