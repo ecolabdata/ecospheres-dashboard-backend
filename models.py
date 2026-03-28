@@ -508,7 +508,7 @@ class Bouquet(Base):
         data["owner"] = data["owner"]["id"] if data["owner"] else None
         data["theme"] = next((themes[tid] for tid in themes if tid in data["tags"]), None)
 
-        factors = list(iter_rel(data.pop("elements"), quiet=True, session=session))
+        factors = list(iter_rel(data.pop("elements"), session=session, log=None))
         data["_factors"] = factors
         data["nb_datasets"] = len(
             [f for f in factors if f.get("element") and f["element"]["class"] == "Dataset"]
