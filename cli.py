@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import traceback
@@ -35,6 +36,12 @@ from models import (
 )
 from rel import iter_rel
 
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+)
+
 if sentry_dsn := os.getenv("SENTRY_DSN"):
     sentry_sdk.init(dsn=sentry_dsn)
 
@@ -48,6 +55,7 @@ class App:
     db: scoped_session
     req: Session
     org_lock: Lock
+    log: logging.Logger
 
     def __init__(self):
         self.org_lock = Lock()
@@ -72,7 +80,7 @@ def load_organization(env: str, organization_id: str, refresh: bool = False) -> 
             if not r.ok:
                 if r.status_code == 410 or r.status_code == 404:
                     # TODO: delete from db?
-                    print(f"Warning: organization {organization_id} has been deleted")
+                    app.log.warning(f"Organization {organization_id} has been deleted")
                     return
                 else:
                     r.raise_for_status()
@@ -109,14 +117,14 @@ def _load_datagouvfr_metrics_batch(
             app.db.commit()
         except Exception as e:
             app.db.rollback()
-            print(f"Error updating batch: {e}")
+            app.log.error(f"Error updating batch: {e}")
 
 
 @cli
 def load_datagouvfr_metrics(env: str = "demo"):
     metrics_url = get_config_value(env, "metrics_api_url")
     if not metrics_url:
-        print("No metrics API URL configured.")
+        app.log.info("No metrics API URL configured.")
         return
 
     # those metrics are always associated to the first of the month for data of last month
@@ -160,13 +168,13 @@ def load_datagouvfr_metrics(env: str = "demo"):
                 organization=org.organization_id,
             )
 
-    print("Loading metrics from data.gouv.fr for datasets...")
+    app.log.info("Loading metrics from data.gouv.fr for datasets...")
     datasets = select(Dataset).where(~Dataset.deleted)
     _load_datagouvfr_metrics_batch(
         f"{metrics_url}/datasets/data/", datasets, "dataset_id", handle_dataset
     )
 
-    print("Loading metrics from data.gouv.fr for organizations...")
+    app.log.info("Loading metrics from data.gouv.fr for organizations...")
     organizations = select(Organization)
     _load_datagouvfr_metrics_batch(
         f"{metrics_url}/organizations/data/", organizations, "organization_id", handle_organization
@@ -176,7 +184,7 @@ def load_datagouvfr_metrics(env: str = "demo"):
 @cli
 def update_organizations(env: str = "demo"):
     """Refresh and complement organizations"""
-    print("Updating organizations...")
+    app.log.info("Updating organizations...")
     organizations = app.db.query(Organization).all()
     custom_organizations = load_es_universe_organizations(env)
     for organization in organizations:
@@ -190,7 +198,7 @@ def update_organizations(env: str = "demo"):
             fresh_organization.type = custom_organization.type
             app.db.add(fresh_organization)
         else:
-            print("Skipping organization", fresh_organization.organization_id)
+            app.log.info(f"Skipping organization {fresh_organization.organization_id}")
     app.db.commit()
 
 
@@ -223,6 +231,7 @@ def load_bouquets(env: str = "demo", include_private: bool = False):
         {"href": url},
         headers={"X-API-KEY": api_key},
         session=app.req,
+        log=app.log,
     ):
         existing = app.db.query(Bouquet).filter_by(bouquet_id=bouquet["id"]).first()
         bouquet_obj = Bouquet.from_payload(bouquet, themes)
@@ -238,7 +247,7 @@ def process_factor(env: str, factor: dict, licenses: list, skip_related: bool) -
     """Process a single factor (dataset) and its resources"""
     api_key = get_config_value(env, "api_key")
     if (factor.get("element") or {}).get("class") != "Dataset":
-        print(f"Skipping factor {factor['id']} (not a dataset).")
+        app.log.debug(f"Skipping factor {factor['id']} (not a dataset).")
         return
     base_url = get_config_value(env, "base_url")
     try:
@@ -248,8 +257,8 @@ def process_factor(env: str, factor: dict, licenses: list, skip_related: bool) -
         r.raise_for_status()
         dataset_payload = r.json()
         if dataset_payload.get("private"):
-            print(
-                f"⚠️ Dataset {factor['element']['id']} for factor {factor['id']} is private, ignoring."
+            app.log.warning(
+                f"Dataset {factor['element']['id']} for factor {factor['id']} is private, ignoring."
             )
             return
         if organization_id := (dataset_payload.get("organization") or {}).get("id"):
@@ -259,7 +268,7 @@ def process_factor(env: str, factor: dict, licenses: list, skip_related: bool) -
         upsert(app.db, dataset_obj, existing)
 
         if not skip_related:
-            for r in iter_rel(dataset_payload["resources"], quiet=True, session=app.req):
+            for r in iter_rel(dataset_payload["resources"], session=app.req, log=None):
                 resource_obj = Resource.from_payload(r, dataset_obj.dataset_id)
                 app.db.add(resource_obj)
     except Exception as e:
@@ -310,7 +319,7 @@ def load(
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         tasks = []
 
-        for factor in iter_rel(topic["elements"], page_size=200, session=app.req):
+        for factor in iter_rel(topic["elements"], page_size=200, session=app.req, log=app.log):
             future = executor.submit(
                 process_factor,
                 env,
@@ -324,8 +333,10 @@ def load(
             try:
                 task.future.result()
             except Exception as e:
-                print(f"Failed to process dataset {task.dataset['id']}: {str(e)}", file=sys.stderr)
-                traceback.print_exc(file=sys.stderr)
+                app.log.error(
+                    f"Failed to process dataset {task.dataset['id']}: {str(e)}\n"
+                    + traceback.format_exc()
+                )
 
     if not skip_related:
         update_organizations(env=env)
@@ -346,7 +357,7 @@ def compute_metrics(env: str = "demo"):
     """
     Fill the time-series metrics table with today's data
     """
-    print("Computing metrics...")
+    app.log.info("Computing metrics...")
 
     query = (
         select(Dataset.organization)
@@ -445,7 +456,7 @@ def compute_metrics(env: str = "demo"):
 @cli
 def load_stats_history(env: str = "demo", since: str = "2024-04-02"):
     parsed_since = date.fromisoformat(since)
-    print(f"Loading stats history since {since}...")
+    app.log.info(f"Loading stats history since {since}...")
     today = date.today()
     for d in range((today - parsed_since).days):
         current_date = parsed_since + timedelta(d)
@@ -463,18 +474,18 @@ def load_stats(
     """
     # defaults to yesterday
     parsed_day = date.fromisoformat(day) if day else date.today() - timedelta(days=1)
-    print(f"Loading stats for {parsed_day.isoformat()}...")
+    app.log.info(f"Loading stats for {parsed_day.isoformat()}...")
 
     stats_url = get_config_value(env, "stats_url")
     stats_site_id = get_config_value(env, "stats_site_id")
     stats_token = get_config_value(env, "stats_token")
 
     if not stats_url or not stats_site_id or not stats_token:
-        print("Skipping stats loading: missing config value(s)")
+        app.log.info("Skipping stats loading: missing config value(s)")
         return
 
     for segment in {None, *segments}:
-        print(f"Loading stats for {f'segment {segment}' if segment else 'all segments'}...")
+        app.log.info(f"Loading stats for {f'segment {segment}' if segment else 'all segments'}...")
         segment_args = (
             {"segment": urllib_parse.quote(f"pageUrl=@https://ecologie.data.gouv.fr{segment}")}
             if segment
@@ -531,9 +542,11 @@ def init_db(env: str = "demo"):
 
 
 @wrap
-def connect(env: str):
-    """Create a wrapped session for cli commands in App.session"""
-    print(f"Working on env {env!r}")
+def initialize(env: str):
+    """Initialize App context for cli commands"""
+
+    app.log = logging.getLogger(f"cli[{env}]")
+    app.log.info(f"Working on env {env!r}")
 
     app.req = Session()
     adapter = HTTPAdapter(
