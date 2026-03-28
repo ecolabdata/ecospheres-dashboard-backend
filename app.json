@@ -1,11 +1,11 @@
 {
   "cron": [
     {
-      "command": "sh -c 'python -u cli.py load --env demo > /var/log/dokku/apps/dashboard-backend/load-demo.log 2>&1'",
+      "command": "python cli.py load --env demo",
       "schedule": "2 6 * * *"
     },
     {
-      "command": "sh -c 'python -u cli.py load --env prod > /var/log/dokku/apps/dashboard-backend/load-prod.log 2>&1'",
+      "command": "python cli.py load --env prod",
       "schedule": "32 6 * * *"
     }
   ],
