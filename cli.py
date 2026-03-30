@@ -541,6 +541,16 @@ def init_db(env: str = "demo"):
     command.stamp(alembic_cfg, "head")
 
 
+class LogRetry(Retry):
+    def increment(
+        self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None
+    ):
+        status = response.status if response else None
+        backoff = self.get_backoff_time()
+        app.log.info(f"{self}: {method} {url} {status=} {error=} {backoff=}")
+        return super().increment(method, url, response, error, _pool, _stacktrace)
+
+
 @wrap
 def initialize(env: str):
     """Initialize App context for cli commands"""
@@ -550,7 +560,7 @@ def initialize(env: str):
 
     app.req = Session()
     adapter = HTTPAdapter(
-        max_retries=Retry(
+        max_retries=LogRetry(
             total=10,
             backoff_factor=10,
             backoff_jitter=1,
