@@ -1,4 +1,14 @@
 {
+  "cron": [
+    {
+      "command": "python -u cli.py load --env demo",
+      "schedule": "2 6 * * *"
+    },
+    {
+      "command": "python -u cli.py load --env prod",
+      "schedule": "32 6 * * *"
+    }
+  ],
   "healthchecks": {
     "web": [
       {
