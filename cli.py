@@ -566,6 +566,7 @@ def initialize(env: str):
             backoff_jitter=1,
             backoff_max=300,
             redirect=False,  # already handled by requests
+            status_forcelist={413, 503, 504},  # 429 not handled here
         )
     )
     app.req.mount("http://", adapter)

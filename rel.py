@@ -1,5 +1,6 @@
 import math
 import re
+import time
 from logging import Logger
 from typing import TypedDict
 
@@ -25,8 +26,17 @@ def iter_rel(
     if log:
         log.info(f"Fetching {current_url}...")
     while current_url is not None:
-        r = s.get(current_url, headers=headers)
-        r.raise_for_status()
+        while True:
+            r = s.get(current_url, headers=headers)
+            if not r.ok:
+                if r.status_code == 429:
+                    if log:
+                        log.warning("429 hit, waiting a bit")
+                    time.sleep(10)
+                    continue
+                else:
+                    r.raise_for_status()
+            break
         payload = r.json()
         total_pages = math.ceil(payload["total"] / payload["page_size"])
         if log:
