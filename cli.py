@@ -350,6 +350,7 @@ def load(
 
     if not skip_stats:
         load_stats(env=env)
+        load_stats(env=env, period="month")
 
 
 @cli
@@ -464,17 +465,48 @@ def load_stats_history(env: str = "demo", since: str = "2024-04-02"):
 
 
 @cli
+def load_stats_history_monthly(env: str = "demo", since: str = "2024-04-01"):
+    """
+    Backfill monthly stats from Matomo since a given month.
+    Fetches one row per month per segment, using period=month so that Matomo
+    returns properly aggregated values for metrics that cannot be summed from
+    daily rows (nb_uniq_visitors, averages, rates).
+    """
+    parsed_since = date.fromisoformat(since).replace(day=1)
+    app.log.info(f"Loading monthly stats history since {parsed_since.isoformat()}...")
+    today = date.today()
+    current = parsed_since
+    while current <= today:
+        load_stats(env=env, day=current.isoformat(), period="month")
+        # advance to next month
+        if current.month == 12:
+            current = current.replace(year=current.year + 1, month=1)
+        else:
+            current = current.replace(month=current.month + 1)
+
+
+@cli
 def load_stats(
     env: str = "demo",
     day: str | None = None,
     segments: list[str] = ["/indicators", "/bouquets", "/dataservices", "/datasets"],
+    period: str = "day",
 ):
     """
-    Upsert the stats table from Matomo
+    Upsert the stats table from Matomo.
+
+    period="day"   — fetches daily stats (default). Defaults to yesterday if no day given.
+    period="month" — fetches monthly stats aggregated by Matomo (correct for unique visitors,
+                     averages, etc.). Date is always normalized to the first of the month.
     """
-    # defaults to yesterday
-    parsed_day = date.fromisoformat(day) if day else date.today() - timedelta(days=1)
-    app.log.info(f"Loading stats for {parsed_day.isoformat()}...")
+    if period == "month":
+        # normalize to first of month for consistency in  the DB
+        parsed_day = (date.fromisoformat(day) if day else date.today()).replace(day=1)
+    else:
+        # defaults to yesterday
+        parsed_day = date.fromisoformat(day) if day else date.today() - timedelta(days=1)
+
+    app.log.info(f"Loading {period} stats for {parsed_day.isoformat()}...")
 
     stats_url = get_config_value(env, "stats_url")
     stats_site_id = get_config_value(env, "stats_site_id")
@@ -496,7 +528,7 @@ def load_stats(
             "module": "API",
             "idSite": stats_site_id,
             "token_auth": stats_token,
-            "period": "day",
+            "period": period,
             "date": parsed_day.isoformat(),
             "format": "JSON",
             **segment_args,
@@ -522,11 +554,14 @@ def load_stats(
         db_data = {k: v for k, v in data.items() if k in columns}
         db_data["date"] = parsed_day
         db_data["segment"] = segment
+        db_data["period"] = period
         if "bounce_rate" in db_data:
             # 39% -> 0.39
             db_data["bounce_rate"] = float(db_data["bounce_rate"].rstrip("%")) / 100
 
-        existing = app.db.query(Stats).filter_by(date=parsed_day, segment=segment).first()
+        existing = app.db.query(Stats).filter_by(
+            date=parsed_day, segment=segment, period=period
+        ).first()
         upsert(app.db, Stats(**db_data), existing)
 
 
