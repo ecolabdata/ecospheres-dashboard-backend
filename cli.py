@@ -349,7 +349,7 @@ def load(
         compute_metrics(env=env)
 
     if not skip_stats:
-        load_stats(env=env)
+        load_stats(env=env,period="day")
         load_stats(env=env, period="month")
 
 
@@ -455,34 +455,30 @@ def compute_metrics(env: str = "demo"):
 
 
 @cli
-def load_stats_history(env: str = "demo", since: str = "2024-04-02"):
-    parsed_since = date.fromisoformat(since)
-    app.log.info(f"Loading stats history since {since}...")
-    today = date.today()
-    for d in range((today - parsed_since).days):
-        current_date = parsed_since + timedelta(d)
-        load_stats(env=env, day=current_date.isoformat())
-
-
-@cli
-def load_stats_history_monthly(env: str = "demo", since: str = "2024-04-01"):
+def load_stats_history(env: str = "demo", since: str = "2024-04-01", period: str = "day"):
     """
-    Backfill monthly stats from Matomo since a given month.
-    Fetches one row per month per segment, using period=month so that Matomo
-    returns properly aggregated values for metrics that cannot be summed from
-    daily rows (nb_uniq_visitors, averages, rates).
+    Backfill stats from Matomo since a given date.
+
+    period="day"   — iterates day by day (default).
+    period="month" — iterates month by month, normalized to the first of each month.
+                     Correct for unique visitors, averages, and rates.
     """
-    parsed_since = date.fromisoformat(since).replace(day=1)
-    app.log.info(f"Loading monthly stats history since {parsed_since.isoformat()}...")
+    app.log.info(f"Loading {period} stats history since {since}...")
     today = date.today()
-    current = parsed_since
-    while current <= today:
-        load_stats(env=env, day=current.isoformat(), period="month")
-        # advance to next month
-        if current.month == 12:
-            current = current.replace(year=current.year + 1, month=1)
-        else:
-            current = current.replace(month=current.month + 1)
+    if period == "month":
+        current = date.fromisoformat(since).replace(day=1)
+        last_complete_month = today.replace(day=1)
+        while current < last_complete_month:
+            load_stats(env=env, day=current.isoformat(), period="month")
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1)
+            else:
+                current = current.replace(month=current.month + 1)
+    else:
+        parsed_since = date.fromisoformat(since)
+        for d in range((today - parsed_since).days):
+            current_date = parsed_since + timedelta(d)
+            load_stats(env=env, day=current_date.isoformat())
 
 
 @cli
@@ -500,8 +496,11 @@ def load_stats(
                      averages, etc.). Date is always normalized to the first of the month.
     """
     if period == "month":
-        # normalize to first of month for consistency in  the DB
-        parsed_day = (date.fromisoformat(day) if day else date.today()).replace(day=1)
+        if day:
+            parsed_day = date.fromisoformat(day).replace(day=1)
+        else:
+            # defaults to last month (first of), like period="day" defaults to yesterday
+            parsed_day = (date.today().replace(day=1) - timedelta(days=1)).replace(day=1)
     else:
         # defaults to yesterday
         parsed_day = date.fromisoformat(day) if day else date.today() - timedelta(days=1)
