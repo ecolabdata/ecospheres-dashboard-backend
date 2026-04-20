@@ -33,6 +33,7 @@ from models import (
     Organization,
     Resource,
     Stats,
+    StatsPeriod,
 )
 from rel import iter_rel
 
@@ -349,8 +350,8 @@ def load(
         compute_metrics(env=env)
 
     if not skip_stats:
-        load_stats(env=env,period="day")
-        load_stats(env=env, period="month")
+        load_stats(env=env,period=StatsPeriod.DAY)
+        load_stats(env=env, period=StatsPeriod.MONTH)
 
 
 @cli
@@ -455,21 +456,23 @@ def compute_metrics(env: str = "demo"):
 
 
 @cli
-def load_stats_history(env: str = "demo", since: str = "2024-04-01", period: str = "day"):
+def load_stats_history(
+    env: str = "demo", since: str = "2024-04-01", period: StatsPeriod = StatsPeriod.DAY
+):
     """
     Backfill stats from Matomo since a given date.
 
-    period="day"   — iterates day by day (default).
-    period="month" — iterates month by month, normalized to the first of each month.
-                     Correct for unique visitors, averages, and rates.
+    period=StatsPeriod.DAY   — iterates day by day (default).
+    period=StatsPeriod.MONTH — iterates month by month, normalized to the first of each month.
+                               Correct for unique visitors, averages, and rates.
     """
     app.log.info(f"Loading {period} stats history since {since}...")
     today = date.today()
-    if period == "month":
+    if period == StatsPeriod.MONTH:
         current = date.fromisoformat(since).replace(day=1)
         last_complete_month = today.replace(day=1)
         while current < last_complete_month:
-            load_stats(env=env, day=current.isoformat(), period="month")
+            load_stats(env=env, day=current.isoformat(), period=StatsPeriod.MONTH)
             if current.month == 12:
                 current = current.replace(year=current.year + 1, month=1)
             else:
@@ -486,16 +489,17 @@ def load_stats(
     env: str = "demo",
     day: str | None = None,
     segments: list[str] = ["/indicators", "/bouquets", "/dataservices", "/datasets"],
-    period: str = "day",
+    period: StatsPeriod = StatsPeriod.DAY,
 ):
     """
     Upsert the stats table from Matomo.
 
-    period="day"   — fetches daily stats (default). Defaults to yesterday if no day given.
-    period="month" — fetches monthly stats aggregated by Matomo (correct for unique visitors,
-                     averages, etc.). Date is always normalized to the first of the month.
+    period=StatsPeriod.DAY   — fetches daily stats (default). Defaults to yesterday if no day given.
+    period=StatsPeriod.MONTH — fetches monthly stats aggregated by Matomo (correct for unique
+                               visitors, averages, etc.). Date is always normalized to the first
+                               of the month.
     """
-    if period == "month":
+    if period == StatsPeriod.MONTH:
         if day:
             parsed_day = date.fromisoformat(day).replace(day=1)
         else:
