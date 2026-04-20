@@ -2,6 +2,7 @@ import re
 from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import date, datetime
+from enum import Enum
 from textwrap import shorten
 from typing import List, NamedTuple, Optional
 
@@ -584,13 +585,18 @@ class DatasetMetric(Base, MetricMixin):
         return f"<Metric {self.measurement}{' of ' + self.dataset if self.dataset else ''} at {self.date}>"
 
 
+class StatsPeriod(str, Enum):
+    DAY = "day"
+    MONTH = "month"
+
+
 class Stats(Base):
     __tablename__ = "stats"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     date: Mapped[date]
     segment: Mapped[Optional[str]]
-    period: Mapped[str]  # "day" or "month"
+    period: Mapped[StatsPeriod]
     # those attributes are directly mapped to matomo
     nb_uniq_visitors: Mapped[int]
     nb_visits: Mapped[int]
