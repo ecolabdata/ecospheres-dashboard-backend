@@ -33,6 +33,7 @@ from models import (
     Organization,
     Resource,
     Stats,
+    StatsPeriod,
 )
 from rel import iter_rel
 
@@ -349,7 +350,8 @@ def load(
         compute_metrics(env=env)
 
     if not skip_stats:
-        load_stats(env=env)
+        load_stats(env=env,period=StatsPeriod.DAY)
+        load_stats(env=env, period=StatsPeriod.MONTH)
 
 
 @cli
@@ -454,13 +456,32 @@ def compute_metrics(env: str = "demo"):
 
 
 @cli
-def load_stats_history(env: str = "demo", since: str = "2024-04-02"):
-    parsed_since = date.fromisoformat(since)
-    app.log.info(f"Loading stats history since {since}...")
+def load_stats_history(
+    env: str = "demo", since: str = "2024-04-01", period: StatsPeriod = StatsPeriod.DAY
+):
+    """
+    Backfill stats from Matomo since a given date.
+
+    period=StatsPeriod.DAY   — iterates day by day (default).
+    period=StatsPeriod.MONTH — iterates month by month, normalized to the first of each month.
+                               Correct for unique visitors, averages, and rates.
+    """
+    app.log.info(f"Loading {period} stats history since {since}...")
     today = date.today()
-    for d in range((today - parsed_since).days):
-        current_date = parsed_since + timedelta(d)
-        load_stats(env=env, day=current_date.isoformat())
+    if period == StatsPeriod.MONTH:
+        current = date.fromisoformat(since).replace(day=1)
+        current_month_start = today.replace(day=1)
+        while current < current_month_start:
+            load_stats(env=env, day=current.isoformat(), period=StatsPeriod.MONTH)
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1)
+            else:
+                current = current.replace(month=current.month + 1)
+    else:
+        parsed_since = date.fromisoformat(since)
+        for d in range((today - parsed_since).days):
+            current_date = parsed_since + timedelta(d)
+            load_stats(env=env, day=current_date.isoformat())
 
 
 @cli
@@ -468,13 +489,27 @@ def load_stats(
     env: str = "demo",
     day: str | None = None,
     segments: list[str] = ["/indicators", "/bouquets", "/dataservices", "/datasets"],
+    period: StatsPeriod = StatsPeriod.DAY,
 ):
     """
-    Upsert the stats table from Matomo
+    Upsert the stats table from Matomo.
+
+    period=StatsPeriod.DAY   — fetches daily stats (default). Defaults to yesterday if no day given.
+    period=StatsPeriod.MONTH — fetches monthly stats aggregated by Matomo (correct for unique
+                               visitors, averages, etc.). Date is always normalized to the first
+                               of the month.
     """
-    # defaults to yesterday
-    parsed_day = date.fromisoformat(day) if day else date.today() - timedelta(days=1)
-    app.log.info(f"Loading stats for {parsed_day.isoformat()}...")
+    if period == StatsPeriod.MONTH:
+        if day:
+            parsed_day = date.fromisoformat(day).replace(day=1)
+        else:
+            # defaults to last month (first of), like period="day" defaults to yesterday
+            parsed_day = (date.today().replace(day=1) - timedelta(days=1)).replace(day=1)
+    else:
+        # defaults to yesterday
+        parsed_day = date.fromisoformat(day) if day else date.today() - timedelta(days=1)
+
+    app.log.info(f"Loading {period} stats for {parsed_day.isoformat()}...")
 
     stats_url = get_config_value(env, "stats_url")
     stats_site_id = get_config_value(env, "stats_site_id")
@@ -496,7 +531,7 @@ def load_stats(
             "module": "API",
             "idSite": stats_site_id,
             "token_auth": stats_token,
-            "period": "day",
+            "period": period,
             "date": parsed_day.isoformat(),
             "format": "JSON",
             **segment_args,
@@ -522,11 +557,14 @@ def load_stats(
         db_data = {k: v for k, v in data.items() if k in columns}
         db_data["date"] = parsed_day
         db_data["segment"] = segment
+        db_data["period"] = period
         if "bounce_rate" in db_data:
             # 39% -> 0.39
             db_data["bounce_rate"] = float(db_data["bounce_rate"].rstrip("%")) / 100
 
-        existing = app.db.query(Stats).filter_by(date=parsed_day, segment=segment).first()
+        existing = app.db.query(Stats).filter_by(
+            date=parsed_day, segment=segment, period=period
+        ).first()
         upsert(app.db, Stats(**db_data), existing)
 
 
