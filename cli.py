@@ -470,8 +470,8 @@ def load_stats_history(
     today = date.today()
     if period == StatsPeriod.MONTH:
         current = date.fromisoformat(since).replace(day=1)
-        last_complete_month = today.replace(day=1)
-        while current < last_complete_month:
+        current_month_start = today.replace(day=1)
+        while current < current_month_start:
             load_stats(env=env, day=current.isoformat(), period=StatsPeriod.MONTH)
             if current.month == 12:
                 current = current.replace(year=current.year + 1, month=1)
