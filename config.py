@@ -35,7 +35,7 @@ ENVS_CONF: dict[Literal["prod", "demo", "local"], ConfigDict] = {
         "front_config_file": "https://raw.githubusercontent.com/opendatateam/udata-front-kit/refs/heads/ecospheres-prod/configs/ecospheres/config.yaml",
     },
     "demo": {
-        "universe_name": "ecospheres",
+        "universe_name": "univers-ecospheres",
         "topic_slug": "univers-ecospheres",
         "base_url": "https://demo.data.gouv.fr",
         "dsn": os.getenv("DATABASE_URL", ""),

@@ -9,5 +9,6 @@ def test_wrong_env():
 
 
 def test_get_simple_value():
-    assert get_config_value("demo", "universe_name") == "ecospheres"
+    assert get_config_value("local", "universe_name") == "ecospheres"
+    assert get_config_value("demo", "universe_name") == "univers-ecospheres"
     assert get_config_value("prod", "universe_name") == "univers-ecospheres"
