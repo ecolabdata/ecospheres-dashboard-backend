@@ -1,4 +1,5 @@
-from datetime import date
+import logging
+from datetime import date, timedelta
 from typing import Type, TypeAlias
 
 import requests
@@ -10,6 +11,18 @@ from models import DatasetMetric, Metric
 from utils import upsert
 
 MetricModel: TypeAlias = Type[Metric] | Type[DatasetMetric]
+
+log = logging.getLogger(__name__)
+
+
+def previous_month(d: date) -> date:
+    """First day of the month before `d`'s month"""
+    return (d.replace(day=1) - timedelta(days=1)).replace(day=1)
+
+
+def next_month(d: date) -> date:
+    """First day of the month after `d`'s month"""
+    return (d.replace(day=28) + timedelta(days=4)).replace(day=1)
 
 
 def add_metric(
@@ -41,13 +54,18 @@ def compute_quality_score(session: scoped_session, organization: str | None = No
     return session.execute(text(q), kwargs).scalar()
 
 
-def get_datagouvfr_metrics(url: str, params: dict, session: Session | None = None) -> list:
+def get_datagouvfr_metrics(
+    url: str, params: dict, session: Session | None = None, month: date | None = None
+) -> list:
+    """Fetch metrics for `month` (any day of it), defaults to last full month"""
     s = session or requests
-    now = date.today()
-    # metrics for last full month
-    metrics_month = f"{now.year}-{str(now.month - 1).zfill(2)}"
-    params["metric_month__exact"] = metrics_month
+    month = month or previous_month(date.today())
+    params["metric_month__exact"] = month.strftime("%Y-%m")
     r = s.get(url, params=params)
     if r.ok:
         return r.json()["data"]
+    # error level so that Sentry's logging integration reports it as an event
+    log.error(
+        "Failed to fetch metrics for %s from %s: HTTP %s", f"{month:%Y-%m}", url, r.status_code
+    )
     return []

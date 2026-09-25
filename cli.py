@@ -21,7 +21,13 @@ from alembic import command
 from alembic.config import Config
 from config import get_config_value, get_front_config
 from db import upsert
-from metrics import add_metric, compute_quality_score, get_datagouvfr_metrics
+from metrics import (
+    add_metric,
+    compute_quality_score,
+    get_datagouvfr_metrics,
+    next_month,
+    previous_month,
+)
 from models import (
     Base,
     Bouquet,
@@ -91,7 +97,12 @@ def load_organization(env: str, organization_id: str, refresh: bool = False) -> 
 
 
 def _load_datagouvfr_metrics_batch(
-    url: str, query: Select, id_field: str, update_fn: Callable, batch_size: int = 50
+    url: str,
+    query: Select,
+    id_field: str,
+    update_fn: Callable,
+    month: date,
+    batch_size: int = 50,
 ):
     total = app.db.scalar(select(func.count("*")).select_from(query.subquery()))
     bar = ProgressBar(total=total)
@@ -104,6 +115,7 @@ def _load_datagouvfr_metrics_batch(
                 f"{id_field}__in": ",".join(getattr(item, id_field) for item in items),
                 "page_size": batch_size,
             },
+            month=month,
         )
         for item in items:
             bar.update()
@@ -122,14 +134,21 @@ def _load_datagouvfr_metrics_batch(
 
 
 @cli
-def load_datagouvfr_metrics(env: str = "demo"):
+def load_datagouvfr_metrics(env: str = "demo", month: str | None = None):
+    """
+    Load monthly metrics from data.gouv.fr for datasets and organizations.
+
+    month — traffic month as YYYY-MM, defaults to last full month.
+    """
     metrics_url = get_config_value(env, "metrics_api_url")
     if not metrics_url:
         app.log.info("No metrics API URL configured.")
         return
 
-    # those metrics are always associated to the first of the month for data of last month
-    at = date.today().replace(day=1)
+    traffic_month = date.fromisoformat(f"{month}-01") if month else previous_month(date.today())
+    # those metrics are always associated to the first of the month following the traffic month
+    at = next_month(traffic_month)
+    app.log.info(f"Loading data.gouv.fr metrics for {traffic_month:%Y-%m}, stored at {at}...")
 
     def handle_dataset(dataset: Dataset, metrics_data: dict):
         if monthly_visit := metrics_data.get("monthly_visit"):
@@ -172,13 +191,17 @@ def load_datagouvfr_metrics(env: str = "demo"):
     app.log.info("Loading metrics from data.gouv.fr for datasets...")
     datasets = select(Dataset).where(~Dataset.deleted)
     _load_datagouvfr_metrics_batch(
-        f"{metrics_url}/datasets/data/", datasets, "dataset_id", handle_dataset
+        f"{metrics_url}/datasets/data/", datasets, "dataset_id", handle_dataset, traffic_month
     )
 
     app.log.info("Loading metrics from data.gouv.fr for organizations...")
     organizations = select(Organization)
     _load_datagouvfr_metrics_batch(
-        f"{metrics_url}/organizations/data/", organizations, "organization_id", handle_organization
+        f"{metrics_url}/organizations/data/",
+        organizations,
+        "organization_id",
+        handle_organization,
+        traffic_month,
     )
 
 
@@ -350,7 +373,7 @@ def load(
         compute_metrics(env=env)
 
     if not skip_stats:
-        load_stats(env=env,period=StatsPeriod.DAY)
+        load_stats(env=env, period=StatsPeriod.DAY)
         load_stats(env=env, period=StatsPeriod.MONTH)
 
 
@@ -473,10 +496,7 @@ def load_stats_history(
         current_month_start = today.replace(day=1)
         while current < current_month_start:
             load_stats(env=env, day=current.isoformat(), period=StatsPeriod.MONTH)
-            if current.month == 12:
-                current = current.replace(year=current.year + 1, month=1)
-            else:
-                current = current.replace(month=current.month + 1)
+            current = next_month(current)
     else:
         parsed_since = date.fromisoformat(since)
         for d in range((today - parsed_since).days):
@@ -562,9 +582,9 @@ def load_stats(
             # 39% -> 0.39
             db_data["bounce_rate"] = float(db_data["bounce_rate"].rstrip("%")) / 100
 
-        existing = app.db.query(Stats).filter_by(
-            date=parsed_day, segment=segment, period=period
-        ).first()
+        existing = (
+            app.db.query(Stats).filter_by(date=parsed_day, segment=segment, period=period).first()
+        )
         upsert(app.db, Stats(**db_data), existing)
 
 
