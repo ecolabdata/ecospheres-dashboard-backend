@@ -37,8 +37,8 @@ UNION ALL SELECT 'metrics', max(date) FROM metrics
 UNION ALL SELECT 'stats', max(date) FROM stats
 ```
 
-Tell the user what the latest dates mean. The latest `datasets_metrics` date is the traffic month plus
-one; data.gouv traffic arrives on the 2nd of each month, and `metrics` / `stats` daily. Then ask whether
+Tell the user what the latest dates mean. The latest `datasets_metrics` date is the latest traffic month;
+a month's data.gouv traffic arrives on the 2nd of the next month, and `metrics` / `stats` daily. Then ask whether
 this copy is recent enough for their question, or whether they want to run `make restore_prod` first. Don't
 query further until they answer. Ask once per session unless they restore in between.
 
@@ -46,11 +46,10 @@ Only **prod** has traffic data (`datasets_metrics`, monthly org metrics, `stats`
 
 ## 2. Traps (read before writing any SQL)
 
-- **`datasets_metrics` and the monthly org metrics in `metrics` are dated the 1st of the month AFTER the
-  traffic.** `2026-09-01` = August 2026. Always present `(date - interval '1 month')::date AS traffic_month`.
-- **`stats` with `period = 'month'` is dated the 1st of the month itself.** Opposite convention to the above.
-  Always filter `stats` on `period`; `segment IS NULL` is the whole site and segments overlap (never sum them).
-  Monthly unique visitors: use `period = 'month'` rows, never sum daily ones.
+- **Monthly rows are dated the 1st of the month they cover**: `datasets_metrics`, the `*_monthly` org
+  traffic in `metrics`, and `stats` with `period = 'month'`. `2026-08-01` = August 2026.
+- **Always filter `stats` on `period`**; `segment IS NULL` is the whole site and segments overlap (never sum
+  them). Monthly unique visitors: use `period = 'month'` rows, never sum daily ones.
 - **Zero traffic has no row** in `datasets_metrics` (and org traffic in `metrics`). For per-dataset
   distributions, start from `catalog WHERE NOT deleted` and `LEFT JOIN … COALESCE(value, 0)`.
 - **A missing month or day is a gap, not a zero** (the cron didn't run). Detect gaps with
@@ -69,7 +68,7 @@ Table-by-table semantics: [schema.md](schema.md). Exact columns: `models.py`, or
 
 Write queries for the question at hand, not from a template. A few patterns come up in most of them:
 
-**Per-dataset distribution for one month.** Zero-fill from `catalog`, and shift the date:
+**Per-dataset distribution for one month.** Zero-fill from `catalog`:
 
 ```sql
 WITH traffic AS (
@@ -77,8 +76,8 @@ WITH traffic AS (
   FROM catalog c
   LEFT JOIN datasets_metrics m
     ON m.dataset = c.dataset_id
-   AND m.measurement = 'nb_visits_last_month'
-   AND m.date = date '2026-09-01'          -- = August 2026 traffic
+   AND m.measurement = 'nb_visits_monthly'
+   AND m.date = date '2026-08-01'          -- August 2026
   WHERE NOT c.deleted
 )
 SELECT ... FROM traffic;

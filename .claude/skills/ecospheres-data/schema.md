@@ -61,24 +61,25 @@ and `nb_factors` (the total) describe each bouquet's contents.
      `nb_datasets_in_bouquets_public`, `nb_datasets_external_in_bouquets_public`,
      `nb_factors_in_bouquets_public`, `nb_factors_missing_in_bouquets_public`,
      `nb_factors_not_available_in_bouquets_public`.
-2. **Monthly data.gouv.fr traffic per organization** (prod only, loaded on the 2nd of the month):
-   `nb_visits_datasets_last_month` and `nb_downloads_resources_last_month`. These count **all of the org's
-   datasets on data.gouv.fr**, not only those in the universe. They follow the date and zero conventions
-   of `datasets_metrics` described below.
+2. **Monthly data.gouv.fr traffic per organization** (prod only, loaded on the 2nd of the next month):
+   `nb_visits_datasets_monthly` and `nb_downloads_resources_monthly`, org rows only (no global total).
+   These count **all of the org's datasets on data.gouv.fr**, not only those in the universe. They follow
+   the date and zero conventions of `datasets_metrics` described below.
 
 Days when the cron did not run are simply missing. For example, it was disabled for a while during a data.gouv IP block.
 
 ## datasets_metrics: monthly data.gouv.fr traffic per dataset (prod only)
 
-`(date, measurement, value, dataset)`. The measurements are `nb_visits_last_month` (dataset page visits) and
-`nb_downloads_resources_last_month` (downloads of the dataset's resources). The source is data.gouv.fr's metric API,
+`(date, measurement, value, dataset)`. The measurements are `nb_visits_monthly` (dataset page visits) and
+`nb_downloads_resources_monthly` (downloads of the dataset's resources). The source is data.gouv.fr's metric API,
 which is **all of data.gouv.fr**, not only ecologie.data.gouv.fr.
 
-- `date` is the **1st of the month AFTER the traffic month**, so `2026-09-01` holds August 2026.
-  Use `(date - interval '1 month')::date AS traffic_month`.
+- `date` is the **1st of the traffic month**, so `2026-08-01` holds August 2026.
 - There are **no zero rows**. A dataset with no traffic that month has no row, so start from `catalog` and
   `LEFT JOIN ... COALESCE(value, 0)`.
-- The data is loaded only if the cron ran on the 2nd of the month, so a whole month can be missing. That is a gap, not zero traffic.
+- The data is loaded only if the cron ran on the 2nd of the next month, so a whole month can be missing. That is a
+  gap, not zero traffic. The user can backfill a month with `cli.py load-datagouvfr-metrics --env prod --month YYYY-MM`
+  (it only covers datasets currently in the universe).
 
 ## stats: Matomo analytics for ecologie.data.gouv.fr (prod only)
 
@@ -87,7 +88,7 @@ One row per `(date, segment, period)`. The columns are mapped from Matomo: `nb_v
 `nb_uniq_visitors_new` / `_returning`, and others.
 
 - `period = 'day'`: `date` is that day. `period = 'month'`: `date` is the **1st of that same month**
-  (no offset, unlike `datasets_metrics`). Rows that existed before the column was added defaulted to `'day'`.
+  (same convention as `datasets_metrics`). Rows that existed before the column was added defaulted to `'day'`.
 - **Always filter on `period`.** For monthly unique visitors, averages or rates, use the `'month'` rows. Summing
   daily `nb_uniq_visitors` overcounts.
 - `segment IS NULL` is the whole site. The other segments are `/datasets`, `/bouquets`, `/indicators` and `/dataservices`,
