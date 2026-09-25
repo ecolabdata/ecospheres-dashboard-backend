@@ -511,10 +511,7 @@ def load_stats_history(
         current_month_start = today.replace(day=1)
         while current < current_month_start:
             load_stats(env=env, day=current.isoformat(), period=StatsPeriod.MONTH)
-            if current.month == 12:
-                current = current.replace(year=current.year + 1, month=1)
-            else:
-                current = current.replace(month=current.month + 1)
+            current = next_month(current)
     else:
         parsed_since = date.fromisoformat(since)
         for d in range((today - parsed_since).days):
