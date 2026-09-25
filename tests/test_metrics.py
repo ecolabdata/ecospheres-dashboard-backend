@@ -117,5 +117,6 @@ def test_get_datagouvfr_metrics_error_is_logged(mock_requests, caplog):
     url = "https://example.com/api"
     mock_requests.get(url, status_code=429)
     assert get_datagouvfr_metrics(url, {}, month=date(2025, 7, 1)) == []
+    assert caplog.records[0].levelname == "ERROR"
     assert "2025-07" in caplog.text
     assert "429" in caplog.text

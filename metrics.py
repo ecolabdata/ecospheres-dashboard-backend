@@ -64,5 +64,8 @@ def get_datagouvfr_metrics(
     r = s.get(url, params=params)
     if r.ok:
         return r.json()["data"]
-    log.warning(f"Failed to fetch metrics for {month:%Y-%m} from {url}: HTTP {r.status_code}")
+    # error level so that Sentry's logging integration reports it as an event
+    log.error(
+        "Failed to fetch metrics for %s from %s: HTTP %s", f"{month:%Y-%m}", url, r.status_code
+    )
     return []
