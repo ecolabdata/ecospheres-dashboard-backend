@@ -206,21 +206,6 @@ def load_datagouvfr_metrics(env: str = "demo", month: str | None = None):
 
 
 @cli
-def load_datagouvfr_metrics_history(since: str, env: str = "demo", until: str | None = None):
-    """
-    Backfill monthly metrics from data.gouv.fr, one traffic month at a time.
-
-    since — first traffic month as YYYY-MM.
-    until — last traffic month as YYYY-MM, defaults to last full month.
-    """
-    current = date.fromisoformat(f"{since}-01")
-    last = date.fromisoformat(f"{until}-01") if until else previous_month(date.today())
-    while current <= last:
-        load_datagouvfr_metrics(env=env, month=current.strftime("%Y-%m"))
-        current = next_month(current)
-
-
-@cli
 def update_organizations(env: str = "demo"):
     """Refresh and complement organizations"""
     app.log.info("Updating organizations...")
