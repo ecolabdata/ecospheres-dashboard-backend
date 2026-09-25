@@ -1,7 +1,15 @@
 from datetime import date
 from unittest.mock import patch
 
-from metrics import compute_quality_score, get_datagouvfr_metrics, quality_score_query
+import pytest
+
+from metrics import (
+    compute_quality_score,
+    get_datagouvfr_metrics,
+    next_month,
+    previous_month,
+    quality_score_query,
+)
 
 
 def test_compute_quality_score():
@@ -63,3 +71,51 @@ def test_get_datagouvfr_metrics_not_found(mock_requests):
     mock_requests.get(url, status_code=404)
     result = get_datagouvfr_metrics(url, {})
     assert result == []
+
+
+@pytest.mark.parametrize(
+    "d,expected",
+    [
+        (date(2026, 9, 2), date(2026, 8, 1)),
+        (date(2026, 1, 2), date(2025, 12, 1)),
+        (date(2026, 3, 31), date(2026, 2, 1)),
+    ],
+)
+def test_previous_month(d, expected):
+    assert previous_month(d) == expected
+
+
+@pytest.mark.parametrize(
+    "d,expected",
+    [
+        (date(2026, 8, 1), date(2026, 9, 1)),
+        (date(2025, 12, 15), date(2026, 1, 1)),
+        (date(2026, 1, 31), date(2026, 2, 1)),
+    ],
+)
+def test_next_month(d, expected):
+    assert next_month(d) == expected
+
+
+@patch("metrics.date")
+def test_get_datagouvfr_metrics_january(mock_date, mock_requests):
+    url = "https://example.com/api"
+    mock_requests.get(url, json={"data": []})
+    mock_date.today.return_value = date(2026, 1, 2)
+    get_datagouvfr_metrics(url, {})
+    assert mock_requests.request_history[0].qs == {"metric_month__exact": ["2025-12"]}
+
+
+def test_get_datagouvfr_metrics_month(mock_requests):
+    url = "https://example.com/api"
+    mock_requests.get(url, json={"data": []})
+    get_datagouvfr_metrics(url, {}, month=date(2025, 7, 1))
+    assert mock_requests.request_history[0].qs == {"metric_month__exact": ["2025-07"]}
+
+
+def test_get_datagouvfr_metrics_error_is_logged(mock_requests, caplog):
+    url = "https://example.com/api"
+    mock_requests.get(url, status_code=429)
+    assert get_datagouvfr_metrics(url, {}, month=date(2025, 7, 1)) == []
+    assert "2025-07" in caplog.text
+    assert "429" in caplog.text
