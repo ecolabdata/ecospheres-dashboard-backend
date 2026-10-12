@@ -1,6 +1,8 @@
 # ecospheres-dashboard-backend
 
-A script that synchronizes data.gouv.fr's Ecospheres-related data to a Postgres database. This database is used to build dashboards.
+Backend for [ecosphere-dashboard](https://github.com/ecolabdata/ecospheres-dashboard).
+
+This project periodically pulls relevant data from data.gouv.fr into a PostgreSQL database, computes data-quality indicators, and fetches usage metrics from data.gouv.fr and Matomo.
 
 ## Getting started
 
@@ -12,7 +14,11 @@ docker compose up
 
 ### Use the script
 
-Install the required dependencies through `requirements.txt` or `requirements-dev.txt`
+Install the required dependencies with [uv](https://docs.astral.sh/uv/):
+
+```shell
+uv sync
+```
 
 Export the env var needed for the script to find the database:
 
