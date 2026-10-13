@@ -242,6 +242,7 @@ class Dataset(Base):
     quality: Mapped[dict] = mapped_column(JSONB)
     internal: Mapped[dict] = mapped_column(JSONB)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String))
+    networks: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, server_default="{}")
 
     # harvest info columns
     harvest__backend: Mapped[Optional[str]]
@@ -468,6 +469,25 @@ class Organization(Base):
         )
 
 
+class Network(Base):
+    __tablename__ = "networks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    network_id: Mapped[str] = mapped_column(unique=True)
+    name: Mapped[str]
+    slug: Mapped[Optional[str]]
+
+    def __repr__(self):
+        return f"<Network {self.network_id}>"
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "Network":
+        data = payload.copy()
+        data["network_id"] = data.pop("id")
+
+        return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
+
+
 class Bouquet(Base):
     __tablename__ = "bouquets"
 
@@ -588,6 +608,7 @@ class DatasetMetric(Base, MetricMixin):
 
     def __repr__(self) -> str:
         return f"<Metric {self.measurement}{' of ' + self.dataset if self.dataset else ''} at {self.date}>"
+
 
 class Stats(Base):
     __tablename__ = "stats"

@@ -2,9 +2,9 @@ from typing import TypeAlias, TypeVar
 
 from sqlalchemy.orm import scoped_session
 
-from models import Bouquet, Dataset, Metric, Organization, Resource, Stats
+from models import Bouquet, Dataset, Metric, Network, Organization, Resource, Stats
 
-Model: TypeAlias = Bouquet | Dataset | Metric | Organization | Resource | Stats
+Model: TypeAlias = Bouquet | Dataset | Metric | Network | Organization | Resource | Stats
 T = TypeVar("T", bound=Model)
 
 
