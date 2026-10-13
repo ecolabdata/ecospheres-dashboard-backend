@@ -1,9 +1,0 @@
-requests
-minicli
-sqlalchemy>=2.0
-psycopg2-binary
-gunicorn
-alembic
-sentry-sdk
-progressist
-PyYAML
