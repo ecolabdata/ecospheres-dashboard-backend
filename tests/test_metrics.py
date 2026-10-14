@@ -27,6 +27,7 @@ def test_compute_quality_score():
 def test_quality_score_query():
     q, kwargs = quality_score_query()
     assert "mean_score" in q
+    assert "NOT deleted" in q
     assert kwargs == {}
 
     o_q, o_kwargs = quality_score_query(organization="org")
