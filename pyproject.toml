@@ -1,0 +1,31 @@
+[project]
+name = "ecospheres-dashboard-backend"
+version = "0.1.0"
+description = "Backend for ecospheres-dashboard."
+requires-python = ">=3.12"
+dependencies = [
+    "requests",
+    "minicli",
+    "sqlalchemy>=2.0,<2.1",
+    "psycopg2-binary",
+    "gunicorn",
+    "alembic",
+    "sentry-sdk",
+    "progressist",
+    "PyYAML",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pre-commit",
+    "ruff==0.5.1",
+    "pyright",
+    "requests-mock",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+extend-select = ["I"]

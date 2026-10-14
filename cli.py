@@ -12,10 +12,11 @@ from urllib import parse as urllib_parse
 import sentry_sdk
 from minicli import cli, run, wrap
 from progressist import ProgressBar
-from requests.adapters import HTTPAdapter, Retry
+from requests.adapters import HTTPAdapter
 from requests.sessions import Session
 from sqlalchemy import Select, and_, create_engine, func, inspect, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
+from urllib3.util.retry import Retry
 
 from alembic import command
 from alembic.config import Config
@@ -145,16 +146,15 @@ def load_datagouvfr_metrics(env: str = "demo", month: str | None = None):
         app.log.info("No metrics API URL configured.")
         return
 
-    traffic_month = date.fromisoformat(f"{month}-01") if month else previous_month(date.today())
-    # those metrics are always associated to the first of the month following the traffic month
-    at = next_month(traffic_month)
-    app.log.info(f"Loading data.gouv.fr metrics for {traffic_month:%Y-%m}, stored at {at}...")
+    # monthly metrics are stored on the first day of their traffic month
+    at = date.fromisoformat(f"{month}-01") if month else previous_month(date.today())
+    app.log.info(f"Loading data.gouv.fr metrics for {at:%Y-%m}...")
 
     def handle_dataset(dataset: Dataset, metrics_data: dict):
         if monthly_visit := metrics_data.get("monthly_visit"):
             add_metric(
                 app.db,
-                "nb_visits_last_month",
+                "nb_visits_monthly",
                 monthly_visit,
                 at=at,
                 dataset=dataset.dataset_id,
@@ -163,7 +163,7 @@ def load_datagouvfr_metrics(env: str = "demo", month: str | None = None):
         if monthly_download_resource := metrics_data.get("monthly_download_resource"):
             add_metric(
                 app.db,
-                "nb_downloads_resources_last_month",
+                "nb_downloads_resources_monthly",
                 monthly_download_resource,
                 at=at,
                 dataset=dataset.dataset_id,
@@ -174,7 +174,7 @@ def load_datagouvfr_metrics(env: str = "demo", month: str | None = None):
         if monthly_visit_dataset := metrics_data.get("monthly_visit_dataset"):
             add_metric(
                 app.db,
-                "nb_visits_datasets_last_month",
+                "nb_visits_datasets_monthly",
                 monthly_visit_dataset,
                 at=at,
                 organization=org.organization_id,
@@ -182,7 +182,7 @@ def load_datagouvfr_metrics(env: str = "demo", month: str | None = None):
         if monthly_download_resource := metrics_data.get("monthly_download_resource"):
             add_metric(
                 app.db,
-                "nb_downloads_resources_last_month",
+                "nb_downloads_resources_monthly",
                 monthly_download_resource,
                 at=at,
                 organization=org.organization_id,
@@ -191,7 +191,7 @@ def load_datagouvfr_metrics(env: str = "demo", month: str | None = None):
     app.log.info("Loading metrics from data.gouv.fr for datasets...")
     datasets = select(Dataset).where(~Dataset.deleted)
     _load_datagouvfr_metrics_batch(
-        f"{metrics_url}/datasets/data/", datasets, "dataset_id", handle_dataset, traffic_month
+        f"{metrics_url}/datasets/data/", datasets, "dataset_id", handle_dataset, at
     )
 
     app.log.info("Loading metrics from data.gouv.fr for organizations...")
@@ -201,7 +201,7 @@ def load_datagouvfr_metrics(env: str = "demo", month: str | None = None):
         organizations,
         "organization_id",
         handle_organization,
-        traffic_month,
+        at,
     )
 
 
