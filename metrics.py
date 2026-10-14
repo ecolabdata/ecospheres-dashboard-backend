@@ -42,9 +42,9 @@ def add_metric(
 
 def quality_score_query(organization: str | None = None) -> tuple[str, dict]:
     kwargs = {}
-    q = "SELECT AVG((quality->>'score')::numeric) AS mean_score FROM catalog"
+    q = "SELECT AVG((quality->>'score')::numeric) AS mean_score FROM catalog WHERE NOT deleted"
     if organization:
-        q = f"{q} WHERE organization = :org"
+        q = f"{q} AND organization = :org"
         kwargs["org"] = organization
     return q, kwargs
 
