@@ -12,10 +12,11 @@ from urllib import parse as urllib_parse
 import sentry_sdk
 from minicli import cli, run, wrap
 from progressist import ProgressBar
-from requests.adapters import HTTPAdapter, Retry
+from requests.adapters import HTTPAdapter
 from requests.sessions import Session
 from sqlalchemy import Select, and_, create_engine, func, inspect, select, text, update
 from sqlalchemy.orm import scoped_session, sessionmaker
+from urllib3.util.retry import Retry
 
 from alembic import command
 from alembic.config import Config

@@ -589,6 +589,7 @@ class DatasetMetric(Base, MetricMixin):
     def __repr__(self) -> str:
         return f"<Metric {self.measurement}{' of ' + self.dataset if self.dataset else ''} at {self.date}>"
 
+
 class Stats(Base):
     __tablename__ = "stats"
 
