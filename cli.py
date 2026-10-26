@@ -230,10 +230,15 @@ def update_organizations(env: str = "demo"):
 @cli
 def load_networks(env: str = "demo"):
     """Refresh the networks (data.gouv.fr topics) and link datasets to them"""
+    if networks_config := get_front_config(env, session=app.req).get("networks"):
+        tag = networks_config["tag"]
+    else:
+        app.log.warning("Skipping networks (not configured)")
+        return
+
     app.log.info("Loading networks...")
 
     base_url = get_config_value(env, "base_url")
-    tag = get_front_config(env, session=app.req)["networks"]["tag"]
 
     # pre-set networks to empty, will be overwritten by actual links
     app.db.execute(update(Dataset).values(networks=[]))
@@ -257,13 +262,18 @@ def load_networks(env: str = "demo"):
 
 @cli
 def load_bouquets(env: str = "demo", include_private: bool = False):
+    if pages_config := get_front_config(env, session=app.req).get("pages"):
+        page_config = pages_config["bouquets"]
+    else:
+        app.log.warning("Skipping bouquets (not configured)")
+        return
+
     app.log.info("Loading bouquets...")
 
     base_url = get_config_value(env, "base_url")
     api_key = get_config_value(env, "api_key")
 
     # build a pallatable list of themes from remote config
-    page_config = get_front_config(env, session=app.req)["pages"]["bouquets"]
     raw_themes = next((f for f in page_config["filters"] if f["id"] == "theme"), {"values": []})
     # FIXME: `page_prefix` for retrocompatibility
     filter_prefix = page_config.get("filter_prefix") or page_config.get("tag_prefix")
