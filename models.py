@@ -475,7 +475,6 @@ class Network(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     network_id: Mapped[str] = mapped_column(unique=True)
     name: Mapped[str]
-    slug: Mapped[Optional[str]]
 
     def __repr__(self):
         return f"<Network {self.network_id}>"

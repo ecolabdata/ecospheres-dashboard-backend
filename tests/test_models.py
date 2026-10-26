@@ -626,9 +626,7 @@ def test_network_from_payload():
         {
             "id": "6a8eff5ce148bf49b3267152",
             "name": "Eaufrance",
-            "slug": "sieau",
         }
     )
     assert network.network_id == "6a8eff5ce148bf49b3267152"
     assert network.name == "Eaufrance"
-    assert network.slug == "sieau"

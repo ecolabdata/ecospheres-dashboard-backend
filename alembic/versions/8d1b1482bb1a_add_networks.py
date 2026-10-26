@@ -26,7 +26,6 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("network_id", sa.String(), nullable=False, unique=True),
         sa.Column("name", sa.String(), nullable=False),
-        sa.Column("slug", sa.String(), nullable=True),
     )
     op.add_column(
         "catalog",
