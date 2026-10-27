@@ -242,7 +242,6 @@ class Dataset(Base):
     quality: Mapped[dict] = mapped_column(JSONB)
     internal: Mapped[dict] = mapped_column(JSONB)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String))
-    networks: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, server_default="{}")
 
     # harvest info columns
     harvest__backend: Mapped[Optional[str]]
@@ -294,6 +293,7 @@ class Dataset(Base):
 
     # relationships
     resources: Mapped[List["Resource"]] = relationship("Resource", back_populates="dataset")
+    networks: Mapped[list["Network"]] = relationship("Network", secondary="datasets_networks")
     bouquets: Mapped[list["Bouquet"]] = relationship(
         "Bouquet", secondary="datasets_bouquets", back_populates="datasets"
     )
@@ -485,6 +485,17 @@ class Network(Base):
         data["network_id"] = data.pop("id")
 
         return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
+
+
+class DatasetNetwork(Base):
+    __tablename__ = "datasets_networks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    network_id: Mapped[str] = mapped_column(String, ForeignKey("networks.network_id"))
+    dataset_id: Mapped[str] = mapped_column(String, ForeignKey("catalog.dataset_id"))
+
+    def __repr__(self):
+        return f"<DatasetNetwork of <Network {self.network_id}> and <Dataset {self.dataset_id}>>"
 
 
 class Bouquet(Base):

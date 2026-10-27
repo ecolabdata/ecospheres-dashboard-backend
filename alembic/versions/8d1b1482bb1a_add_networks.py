@@ -9,7 +9,6 @@ Create Date: 2026-10-12 18:51:57.814557
 from typing import Sequence, Union
 
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
@@ -27,12 +26,14 @@ def upgrade() -> None:
         sa.Column("network_id", sa.String(), nullable=False, unique=True),
         sa.Column("name", sa.String(), nullable=False),
     )
-    op.add_column(
-        "catalog",
-        sa.Column("networks", postgresql.ARRAY(sa.String()), nullable=False, server_default="{}"),
+    op.create_table(
+        "datasets_networks",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("network_id", sa.String(), sa.ForeignKey("networks.network_id")),
+        sa.Column("dataset_id", sa.String(), sa.ForeignKey("catalog.dataset_id")),
     )
 
 
 def downgrade() -> None:
-    op.drop_column("catalog", "networks")
+    op.drop_table("datasets_networks")
     op.drop_table("networks")
