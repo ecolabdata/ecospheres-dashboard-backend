@@ -25,6 +25,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("network_id", sa.String(), nullable=False, unique=True),
         sa.Column("name", sa.String(), nullable=False),
+        sa.Column("deleted", sa.Boolean(), nullable=False),
     )
     op.create_table(
         "datasets_networks",

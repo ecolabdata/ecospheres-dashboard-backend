@@ -240,8 +240,12 @@ def load_networks(env: str = "demo"):
 
     base_url = get_config_value(env, "base_url")
 
-    # pre-set networks to empty, will be overwritten by actual links
     app.db.execute(text("DELETE FROM datasets_networks"))
+    app.db.commit()
+
+    # pre-set deleted, will be overwritten by actual upsert
+    stmt = update(Network).values(deleted=True)
+    app.db.execute(stmt)
     app.db.commit()
 
     url = f"{base_url}/api/2/topics/?tag={tag}"
@@ -251,8 +255,6 @@ def load_networks(env: str = "demo"):
         network_obj_in_db = upsert(app.db, network_obj, existing)
         elem_url = f"{topic['elements']['href']}&class=Dataset"
         for elt in iter_rel({"href": elem_url}, session=app.req, log=None):
-            if not elt.get("element"):
-                continue
             dataset_obj = app.db.query(Dataset).filter_by(dataset_id=elt["element"]["id"]).first()
             if dataset_obj and network_obj_in_db not in dataset_obj.networks:
                 dataset_obj.networks.append(network_obj_in_db)

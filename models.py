@@ -293,7 +293,9 @@ class Dataset(Base):
 
     # relationships
     resources: Mapped[List["Resource"]] = relationship("Resource", back_populates="dataset")
-    networks: Mapped[list["Network"]] = relationship("Network", secondary="datasets_networks")
+    networks: Mapped[list["Network"]] = relationship(
+        "Network", secondary="datasets_networks", back_populates="datasets"
+    )
     bouquets: Mapped[list["Bouquet"]] = relationship(
         "Bouquet", secondary="datasets_bouquets", back_populates="datasets"
     )
@@ -476,12 +478,21 @@ class Network(Base):
     network_id: Mapped[str] = mapped_column(unique=True)
     name: Mapped[str]
 
+    deleted: Mapped[bool]
+
+    # relationships
+    datasets: Mapped[list["Dataset"]] = relationship(
+        "Dataset", secondary="datasets_networks", back_populates="networks"
+    )
+
     def __repr__(self):
         return f"<Network {self.network_id}>"
 
     @classmethod
     def from_payload(cls, payload: dict) -> "Network":
         data = payload.copy()
+        data["deleted"] = False
+
         data["network_id"] = data.pop("id")
 
         return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
