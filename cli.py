@@ -37,6 +37,7 @@ from models import (
     DatasetComputedColumns,
     DatasetMetric,
     EcospheresUniverseOrganization,
+    Network,
     Organization,
     Resource,
     Stats,
@@ -227,12 +228,53 @@ def update_organizations(env: str = "demo"):
 
 
 @cli
+def load_networks(env: str = "demo"):
+    """Refresh the networks (data.gouv.fr topics) and link datasets to them"""
+    if networks_config := get_front_config(env, session=app.req).get("networks"):
+        tag = networks_config["tag"]
+    else:
+        app.log.warning("Skipping networks (not configured)")
+        return
+
+    app.log.info("Loading networks...")
+
+    base_url = get_config_value(env, "base_url")
+
+    app.db.execute(text("DELETE FROM datasets_networks"))
+    app.db.commit()
+
+    # pre-set deleted, will be overwritten by actual upsert
+    stmt = update(Network).values(deleted=True)
+    app.db.execute(stmt)
+    app.db.commit()
+
+    url = f"{base_url}/api/2/topics/?tag={tag}"
+    for topic in iter_rel({"href": url}, session=app.req, log=app.log):
+        network_obj = Network.from_payload(topic)
+        existing = app.db.query(Network).filter_by(network_id=network_obj.network_id).first()
+        network_obj_in_db = upsert(app.db, network_obj, existing)
+        elem_url = f"{topic['elements']['href']}&class=Dataset"
+        for elt in iter_rel({"href": elem_url}, session=app.req, log=None):
+            dataset_obj = app.db.query(Dataset).filter_by(dataset_id=elt["element"]["id"]).first()
+            if dataset_obj and network_obj_in_db not in dataset_obj.networks:
+                dataset_obj.networks.append(network_obj_in_db)
+        app.db.commit()
+
+
+@cli
 def load_bouquets(env: str = "demo", include_private: bool = False):
+    if pages_config := get_front_config(env, session=app.req).get("pages"):
+        page_config = pages_config["bouquets"]
+    else:
+        app.log.warning("Skipping bouquets (not configured)")
+        return
+
+    app.log.info("Loading bouquets...")
+
     base_url = get_config_value(env, "base_url")
     api_key = get_config_value(env, "api_key")
 
     # build a pallatable list of themes from remote config
-    page_config = get_front_config(env, session=app.req)["pages"]["bouquets"]
     raw_themes = next((f for f in page_config["filters"] if f["id"] == "theme"), {"values": []})
     # FIXME: `page_prefix` for retrocompatibility
     filter_prefix = page_config.get("filter_prefix") or page_config.get("tag_prefix")
@@ -364,6 +406,7 @@ def load(
 
     if not skip_related:
         update_organizations(env=env)
+        load_networks(env=env)
         load_bouquets(env=env)
 
     if not skip_metrics:

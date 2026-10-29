@@ -10,6 +10,7 @@ from models import (
     ContactPoint,
     Dataset,
     DatasetComputedColumns,
+    Network,
     Resource,
     ResourceComputedColumns,
 )
@@ -618,3 +619,14 @@ def test_bouquet_factors(fixture_payload, mock_requests):
     assert bouquet.nb_factors_missing == 1
     assert bouquet.nb_factors_not_available == 1
     assert bouquet._factors == factors
+
+
+def test_network_from_payload():
+    network = Network.from_payload(
+        {
+            "id": "6a8eff5ce148bf49b3267152",
+            "name": "Eaufrance",
+        }
+    )
+    assert network.network_id == "6a8eff5ce148bf49b3267152"
+    assert network.name == "Eaufrance"
