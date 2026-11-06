@@ -18,6 +18,7 @@ from utils import (
     DEFAULT_LIST_EXCLUDE,
     DEFAULT_STRING_EXCLUDE,
     accept,
+    get_nested,
 )
 
 
@@ -49,6 +50,8 @@ class DatasetComputedColumns:
     MISSING_PREFIX_MESSAGE = "[préfixe absent]"
     DESCRIPTION_MIN_LENGTH = 200
     DESCRIPTION_UPPER_BOUNDS = Bounds[int]([DESCRIPTION_MIN_LENGTH, 1000, 5000], True)
+    PROVENANCE_MIN_LENGTH = DESCRIPTION_MIN_LENGTH
+    PROVENANCE_UPPER_BOUNDS = DESCRIPTION_UPPER_BOUNDS
     QUALITY_SCORE_UPPER_BOUNDS = Bounds[float]([0.2, 0.4, 0.6, 0.8, 1.0], False)
     SPATIAL_COORDINATES_MAX_LENGTH = 500
 
@@ -63,6 +66,7 @@ class DatasetComputedColumns:
         {"field": "resources__total", "exclude": (0,)},
         {"field": "spatial__zones", "exclude": DEFAULT_LIST_EXCLUDE},
         {"field": "spatial__geom", "exclude": DEFAULT_LIST_EXCLUDE},
+        {"field": "spatial_resolution", "exclude": DEFAULT_STRING_EXCLUDE},
         {"field": "temporal_coverage", "exclude": DEFAULT_JSON_EXCLUDE},
         {"field": "frequency", "exclude": DEFAULT_STRING_EXCLUDE + ("unknown",)},
         {"field": "contact_points", "exclude": DEFAULT_LIST_EXCLUDE},
@@ -128,7 +132,7 @@ class DatasetComputedColumns:
         return f'<a href="{url}{id}" target="_blank">{id}</a>'
 
     def get_year_from_harvest_date(self, field: str) -> int | None:
-        if d := (self.payload.get("harvest") or {}).get(field):
+        if d := get_nested(self.payload, "harvest", field):
             return datetime.fromisoformat(d).year
 
     def get_consistent_dates(self) -> bool:
@@ -162,7 +166,7 @@ class DatasetComputedColumns:
             return f"{start} - {end}"
 
     def get_spatial_coordinates(self) -> str | None:
-        if coords := ((self.payload.get("spatial") or {}).get("geom") or {}).get("coordinates"):
+        if coords := get_nested(self.payload, "spatial", "geom", "coordinates"):
             return shorten(
                 repr(coords), width=self.SPATIAL_COORDINATES_MAX_LENGTH, placeholder="..."
             )
@@ -186,6 +190,8 @@ class DatasetComputedColumns:
     def get_computed_columns(self):
         description_length = len(self.payload["description"] or "")
         description_bin = self.get_bin(description_length, self.DESCRIPTION_UPPER_BOUNDS)
+        provenance_length = len(self.payload["provenance"] or "")
+        provenance_bin = self.get_bin(provenance_length, self.PROVENANCE_UPPER_BOUNDS)
         quality_score = self.get_quality_score()
         quality_score_bin = self.get_bin(quality_score, self.QUALITY_SCORE_UPPER_BOUNDS)
         first_contact_point = self.get_first_contact_point()
@@ -204,6 +210,9 @@ class DatasetComputedColumns:
             "description__length__ok": description_length >= self.DESCRIPTION_MIN_LENGTH,
             "description__length__bin": description_bin.bin,
             "description__length__bin_label": description_bin.label,
+            "provenance__length__ok": provenance_length >= self.DESCRIPTION_MIN_LENGTH,
+            "provenance__length__bin": provenance_bin.bin,
+            "provenance__length__bin_label": provenance_bin.label,
             "quality__score": quality_score,
             "quality__score__bin": quality_score_bin.bin,
             "quality__score__bin_label": quality_score_bin.label,
@@ -232,6 +241,7 @@ class Dataset(Base):
     acronym: Mapped[Optional[str]]
     slug: Mapped[str]
     spatial: Mapped[Optional[dict]] = mapped_column(JSONB)
+    spatial_resolution: Mapped[Optional[str]]
     contact_points: Mapped[List[dict]] = mapped_column(JSONB)
     deleted: Mapped[bool]
     description: Mapped[str]
@@ -270,6 +280,7 @@ class Dataset(Base):
     has_resources__total: Mapped[bool]
     has_spatial__zones: Mapped[bool]
     has_spatial__geom: Mapped[bool]
+    has_spatial_resolution: Mapped[bool]
     has_temporal_coverage: Mapped[bool]
     has_frequency: Mapped[bool]
     has_contact_points: Mapped[bool]
@@ -285,6 +296,10 @@ class Dataset(Base):
     description__length__ok: Mapped[bool]
     description__length__bin: Mapped[int]
     description__length__bin_label: Mapped[str]
+    provenance: Mapped[Optional[str]]
+    provenance__length__ok: Mapped[bool]
+    provenance__length__bin: Mapped[int]
+    provenance__length__bin_label: Mapped[str]
     quality__score: Mapped[float]
     quality__score__bin: Mapped[int]
     quality__score__bin_label: Mapped[str]
@@ -319,6 +334,12 @@ class Dataset(Base):
         data["nb_resources"] = data["resources"]["total"]
         data["organization"] = data["organization"]["id"] if data["organization"] else None
         data["owner"] = data["owner"]["id"] if data["owner"] else None
+        data["spatial_resolution"] = get_nested(data, "extras", "dcat", "spatial_resolution")
+        data["provenance"] = (
+            "\n".join(provenance)
+            if (provenance := get_nested(data, "extras", "dcat", "provenance"))
+            else None
+        )
 
         computer = DatasetComputedColumns(data, base_url, licenses)
 
@@ -347,7 +368,7 @@ class ResourceComputedColumns:
 
     def get_computed_columns(self) -> dict:
         return {
-            "schema__name": (self.payload.get("schema") or {}).get("name"),
+            "schema__name": get_nested(self.payload, "schema", "name"),
         }
 
     def get_indicators(self) -> dict:
@@ -405,6 +426,7 @@ class Resource(Base):
         data = payload.copy()
         data["resource_id"] = data.pop("id")
         data["available"] = bool((data.get("extras") or {}).get("check:available"))
+        data["available"] = bool(get_nested(data, "extras", "check:available"))
 
         computer = ResourceComputedColumns(data)
 

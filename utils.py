@@ -49,3 +49,13 @@ def upsert[T: HasId](
     if auto_commit:
         session.commit()
     return result
+
+
+def get_nested(payload: dict, path: str, *paths: str) -> Any | None:
+    _path = [path, *(paths or [])]
+    _payload = payload
+    for p in _path[:-1]:
+        _payload = _payload.get(p)
+        if not _payload:
+            return
+    return _payload.get(_path[-1])
