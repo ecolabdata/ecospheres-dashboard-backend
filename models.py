@@ -210,7 +210,7 @@ class DatasetComputedColumns:
             "description__length__ok": description_length >= self.DESCRIPTION_MIN_LENGTH,
             "description__length__bin": description_bin.bin,
             "description__length__bin_label": description_bin.label,
-            "provenance__length__ok": provenance_length >= self.DESCRIPTION_MIN_LENGTH,
+            "provenance__length__ok": provenance_length >= self.PROVENANCE_MIN_LENGTH,
             "provenance__length__bin": provenance_bin.bin,
             "provenance__length__bin_label": provenance_bin.label,
             "quality__score": quality_score,
@@ -425,7 +425,6 @@ class Resource(Base):
     def from_payload(cls, payload: dict, dataset_id: str) -> "Resource":
         data = payload.copy()
         data["resource_id"] = data.pop("id")
-        data["available"] = bool((data.get("extras") or {}).get("check:available"))
         data["available"] = bool(get_nested(data, "extras", "check:available"))
 
         computer = ResourceComputedColumns(data)
