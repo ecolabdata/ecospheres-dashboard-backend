@@ -117,6 +117,7 @@ def _load_datagouvfr_metrics_batch(
                 f"{id_field}__in": ",".join(getattr(item, id_field) for item in items),
                 "page_size": batch_size,
             },
+            session=app.req,
             month=month,
         )
         for item in items:
@@ -642,6 +643,15 @@ def init_db(env: str = "demo"):
     command.stamp(alembic_cfg, "head")
 
 
+class TimeoutHTTPAdapter(HTTPAdapter):
+    """HTTPAdapter with a default (connect, read) timeout, so requests can't hang forever"""
+
+    DEFAULT_TIMEOUT = (10, 60)
+
+    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):
+        return super().send(request, stream, timeout or self.DEFAULT_TIMEOUT, verify, cert, proxies)
+
+
 class LogRetry(Retry):
     def increment(
         self, method=None, url=None, response=None, error=None, _pool=None, _stacktrace=None
@@ -660,7 +670,7 @@ def initialize(env: str):
     app.log.info(f"Working on env {env!r}")
 
     app.req = Session()
-    adapter = HTTPAdapter(
+    adapter = TimeoutHTTPAdapter(
         max_retries=LogRetry(
             total=10,
             backoff_factor=10,
