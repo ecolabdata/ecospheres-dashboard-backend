@@ -58,7 +58,6 @@ if sentry_dsn := os.getenv("SENTRY_DSN"):
 
 def on_sigterm(signum, frame):
     """Report a killed run (e.g. by `timeout` in cron) instead of dying silently"""
-    # sentry's logging integration turns this into an event
     logging.getLogger("cli").error(f"Terminated by SIGTERM: {' '.join(sys.argv)}")
     # send it before exiting, os._exit skips sentry's own flush at exit
     sentry_sdk.flush(timeout=10)
