@@ -1,5 +1,6 @@
 import logging
 import os
+import signal
 import sys
 import traceback
 from collections import defaultdict
@@ -53,6 +54,18 @@ logging.basicConfig(
 
 if sentry_dsn := os.getenv("SENTRY_DSN"):
     sentry_sdk.init(dsn=sentry_dsn)
+
+
+def on_sigterm(signum, frame):
+    """Report a killed run (e.g. by `timeout` in cron) instead of dying silently"""
+    logging.getLogger("cli").error(f"Terminated by SIGTERM: {' '.join(sys.argv)}")
+    # send it before exiting, os._exit skips sentry's own flush at exit
+    sentry_sdk.flush(timeout=10)
+    # os._exit: a normal exit would wait for hung worker threads
+    os._exit(128 + signum)
+
+
+signal.signal(signal.SIGTERM, on_sigterm)
 
 
 class Task(NamedTuple):
